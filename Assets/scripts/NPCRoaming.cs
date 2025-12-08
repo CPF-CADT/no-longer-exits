@@ -20,7 +20,7 @@ public class NPCRoaming : MonoBehaviour
 
     [Header("Sensors - Vision")]
     public float visionRange = 15f;
-    [Range(0, 360)] public float viewAngle = 90f; // 90 Degree View
+    [Range(0, 360)] public float viewAngle = 120f; // 90 Degree View
     public LayerMask obstacleMask; // Layers that block vision (Walls, etc.)
 
     [Header("Sensors - Hearing")]
