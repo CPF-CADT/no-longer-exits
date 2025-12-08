@@ -206,19 +206,47 @@ public class NPCRoaming : MonoBehaviour
         if (player == null || alreadyTriggeredScare) return;
         if (HideBox.IsPlayerHiddenAnywhere()) return;
 
-        Vector3 playerPosFlat = new Vector3(player.position.x, transform.position.y, player.position.z);
-        Vector3 npcPosFlat = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-        float dist = Vector3.Distance(npcPosFlat, playerPosFlat);
+        // Use the Model position for distance (more accurate for floating ghosts)
+        Transform targetPart = model != null ? model : transform;
+        float dist = Vector3.Distance(targetPart.position, player.position);
 
         if (dist <= scareDistance)
         {
             alreadyTriggeredScare = true;
+
+            // 1. FREEZE
             agent.isStopped = true;
+            agent.velocity = Vector3.zero;
             transform.LookAt(player);
+            // Ensure the floating head looks at the player too
+            if (model != null) model.LookAt(player.position + Vector3.up * 1.5f); 
+
+            // 2. DISABLE PLAYER
+            FirstPersonLook lookScript = player.GetComponentInChildren<FirstPersonLook>();
+            if (lookScript == null && Camera.main != null) 
+                lookScript = Camera.main.GetComponent<FirstPersonLook>();
+            
+            if (lookScript != null) {
+                lookScript.freezeCamera = true;
+                lookScript.enabled = false; 
+            }
+
+            FirstPersonMovement moveScript = player.GetComponent<FirstPersonMovement>();
+            if (moveScript != null) moveScript.enabled = false;
+            
+            Rigidbody rb = player.GetComponent<Rigidbody>();
+            if (rb != null) rb.isKinematic = true;
+
+            // 3. TRIGGER CAMERA
             if (GhostCameraController.Instance != null)
-                GhostCameraController.Instance.MoveCameraToPoint(cameraScarePoint, 1f);
+            {
+                // *** THE FIX: Pass 'targetPart' (The Model) instead of 'transform' ***
+                // This ensures the camera goes to the FLOATING HEAD, not the feet on the ground.
+                GhostCameraController.Instance.MoveCameraToPoint(targetPart, 0.5f);
+            }
         }
     }
+
     void OnDrawGizmosSelected()
     {
         if (player == null) return;
