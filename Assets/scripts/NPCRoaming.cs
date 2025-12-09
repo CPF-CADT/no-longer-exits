@@ -20,12 +20,16 @@ public class NPCRoaming : MonoBehaviour
 
     [Header("Sensors - Vision")]
     public float visionRange = 15f;
-    [Range(0, 360)] public float viewAngle = 120f; // 90 Degree View
-    public LayerMask obstacleMask; // Layers that block vision (Walls, etc.)
+    [Range(0, 360)] public float viewAngle = 120f;
+    public LayerMask obstacleMask; 
 
     [Header("Sensors - Hearing")]
-    public float hearingRange = 10f; // Detect running within 8-10 units
-    public float runSpeedThreshold = 4f; // Minimum speed to be considered "Running"
+    public float hearingRange = 10f; 
+    public float runSpeedThreshold = 4f; 
+
+    [Header("Sensors - Doors")]
+    public float doorInteractRange = 5f; // Ghost opens doors within 5 units
+    public LayerMask doorLayer; // Optional: Optimize if doors have a specific layer
 
     [Header("Close Range Scare Detection")]
     public float scareDistance = 2f;
@@ -64,13 +68,11 @@ public class NPCRoaming : MonoBehaviour
 
     void Update()
     {
-        // Calculate Player Speed for Hearing Logic
         CalculatePlayerSpeed();
 
-        // 1. Check if we should chase the player (Vision or Hearing)
+        // 1. Check if we should chase the player
         if (player != null)
         {
-            // If player is hiding, we lose track immediately
             if (HideBox.IsPlayerHiddenAnywhere())
             {
                 followingPlayer = false;
@@ -80,12 +82,10 @@ public class NPCRoaming : MonoBehaviour
                 bool canSee = CheckVision();
                 bool canHear = CheckHearing();
 
-                // If we see OR hear the player, we follow
                 if (canSee || canHear)
                 {
                     followingPlayer = true;
                 }
-                // Determine when to stop following (if player gets too far away)
                 else if (followingPlayer)
                 {
                     float dist = Vector3.Distance(transform.position, player.position);
@@ -100,12 +100,10 @@ public class NPCRoaming : MonoBehaviour
         // 2. Movement Logic
         if (followingPlayer && player != null)
         {
-            // IGNORE waypoints, set Player as the destination
             agent.SetDestination(player.position);
         }
         else
         {
-            // Patrol Logic
             if (!agent.pathPending && agent.remainingDistance < waypointThreshold)
             {
                 GoToNextWaypoint();
@@ -113,10 +111,31 @@ public class NPCRoaming : MonoBehaviour
         }
 
         // 3. Other Behaviors
+        CheckNearbyDoors(); // <--- NEW FUNCTION HERE
         CheckCloseDetection();
         HoverMotion();
         RotateBody();
         RotateModel();
+    }
+
+    // --- NEW: DOOR LOGIC ---
+    private void CheckNearbyDoors()
+    {
+        // Find all colliders within 5 units
+        // You can add 'doorLayer' as a second parameter if you want to optimize performance
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, doorInteractRange);
+
+        foreach (var hit in hitColliders)
+        {
+            // Look for the DoorController on the object or its parent
+            DoorController door = hit.GetComponentInParent<DoorController>();
+            
+            if (door != null)
+            {
+                // Force the door open (will ignore it if already open)
+                door.OpenDoor();
+            }
+        }
     }
 
     // --- SENSOR LOGIC ---
@@ -126,17 +145,12 @@ public class NPCRoaming : MonoBehaviour
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
         float distToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // 1. Check Distance
         if (distToPlayer > visionRange) return false;
 
-        // 2. Check Angle (90 degrees)
         if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2)
         {
-            // 3. Check Raycast (Line of Sight)
-            // We cast from slightly up (0.5f) to avoid hitting the floor immediately
             if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, distToPlayer, obstacleMask))
             {
-                // If the ray didn't hit an obstacle, we see the player
                 return true;
             }
         }
@@ -146,8 +160,6 @@ public class NPCRoaming : MonoBehaviour
     private bool CheckHearing()
     {
         float distToPlayer = Vector3.Distance(transform.position, player.position);
-
-        // If player is within hearing range (10 units) AND moving fast
         if (distToPlayer <= hearingRange && playerCurrentSpeed > runSpeedThreshold)
         {
             return true;
@@ -158,7 +170,6 @@ public class NPCRoaming : MonoBehaviour
     private void CalculatePlayerSpeed()
     {
         if (player == null) return;
-        // Simple speed calculation based on position change
         playerCurrentSpeed = (player.position - lastPlayerPosition).magnitude / Time.deltaTime;
         lastPlayerPosition = player.position;
     }
@@ -201,7 +212,7 @@ public class NPCRoaming : MonoBehaviour
         transform.position = pos;
     }
 
-    private void CheckCloseDetection()
+     private void CheckCloseDetection()
     {
         if (player == null || alreadyTriggeredScare) return;
         if (HideBox.IsPlayerHiddenAnywhere()) return;
@@ -249,37 +260,20 @@ public class NPCRoaming : MonoBehaviour
 
     void OnDrawGizmosSelected()
     {
+        // Draw Door Interaction Range
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(transform.position, doorInteractRange);
+
         if (player == null) return;
 
-        // --- Draw Vision Range Circle ---
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, visionRange);
 
-        // --- Draw Vision Angle Lines ---
         Vector3 leftDir = Quaternion.Euler(0, -viewAngle / 2, 0) * transform.forward;
         Vector3 rightDir = Quaternion.Euler(0, viewAngle / 2, 0) * transform.forward;
 
         Gizmos.color = Color.cyan;
         Gizmos.DrawLine(transform.position, transform.position + leftDir * visionRange);
         Gizmos.DrawLine(transform.position, transform.position + rightDir * visionRange);
-
-        // --- Draw Line to Player ---
-        Vector3 dirToPlayer = (player.position - transform.position).normalized;
-        float distToPlayer = Vector3.Distance(transform.position, player.position);
-
-        if (distToPlayer <= visionRange && Vector3.Angle(transform.forward, dirToPlayer) <= viewAngle / 2)
-        {
-            // Check if line of sight is clear
-            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, distToPlayer, obstacleMask))
-            {
-                Gizmos.color = Color.green; // Player visible
-            }
-            else
-            {
-                Gizmos.color = Color.red; // Player blocked
-            }
-            Gizmos.DrawLine(transform.position, player.position);
-        }
     }
-
 }
