@@ -1,86 +1,60 @@
 using UnityEngine;
 
-[RequireComponent(typeof(Animator), typeof(Rigidbody))]
 public class FirstPersonAnimator : MonoBehaviour
 {
     [Header("References")]
-    public Animator animator;
-    public Rigidbody rb;
-
-    [Header("Dependencies")]
+    // This variable was likely missing or named differently in your script
+    public Animator animator; 
     public FirstPersonMovement movementScript;
     public Crouch crouchScript;
 
-    [Tooltip("Drag your GroundCheck object here (the one with the GroundCheck script)")]
-    public GroundCheck groundChecker;
+    // Internal reference
+    private CharacterController controller;
 
-    // Parameters
-    private const float minMoveSpeed = 0.1f;
-
-    void Reset()
+    void Start()
     {
-        animator = GetComponent<Animator>();
-        rb = GetComponent<Rigidbody>();
-        movementScript = GetComponent<FirstPersonMovement>();
-        crouchScript = GetComponent<Crouch>();
-        groundChecker = GetComponentInChildren<GroundCheck>();
+        // --- AUTO-FIND LOGIC (Fixes the "Cannot Drop" issue) ---
+        
+        // 1. Look for Animator inside children (like your "helmet.002" or mesh)
+        if (animator == null) 
+            animator = GetComponentInChildren<Animator>();
+
+        // 2. Find scripts on this object
+        if (movementScript == null) 
+            movementScript = GetComponent<FirstPersonMovement>();
+            
+        if (crouchScript == null) 
+            crouchScript = GetComponent<Crouch>();
+        
+        // 3. Get the controller
+        controller = GetComponent<CharacterController>();
+
+        // Debug check
+        if (animator == null) Debug.LogError("Still cannot find an Animator! Make sure your 3D model is a child of this object.");
     }
 
     void Update()
     {
-        if (animator == null || rb == null) return;
+        // Safety check: stop if we are missing components
+        if (animator == null || movementScript == null || controller == null) return;
 
-        // --- 1. GATHER DATA ---
+        // --- 1. GET DATA ---
         
-        // Check Ground Status (Default to true if no checker assigned to avoid getting stuck in jump anim)
-        bool isGrounded = groundChecker != null ? groundChecker.isGrounded : true;
-        
-        // Calculate Horizontal Speed (Ignore Y/Falling speed)
-        Vector3 horizontalVelocity = rb.velocity;
-        horizontalVelocity.y = 0;
+        // Use Controller velocity (not Rigidbody)
+        Vector3 horizontalVelocity = controller.velocity;
+        horizontalVelocity.y = 0; 
         float currentSpeed = horizontalVelocity.magnitude;
 
-        // Check Crouch Status
+        bool isGrounded = movementScript.isGrounded;
         bool isCrouching = crouchScript != null && crouchScript.IsCrouched;
+        bool isSprinting = movementScript.IsRunning && currentSpeed > 0.1f;
 
-        // Check Sprint Status (Must be moving fast enough + Input is true + NOT Crouching)
-        bool isSprinting = (currentSpeed > minMoveSpeed) 
-                            && (movementScript != null && movementScript.IsRunning) 
-                            && !isCrouching;
-
-        // Check Walk/Run Status (Moving + NOT Sprinting)
-        // Note: In some Animators, you keep "Run" true while sprinting. 
-        // If your transitions are "Idle -> Walk -> Sprint", use the logic below:
-        bool isWalking = (currentSpeed > minMoveSpeed) && !isSprinting;
-
-
-        // --- 2. SET ANIMATOR VALUES ---
-
-        // GROUNDED LOGIC
-        if (isGrounded)
-        {
-            animator.SetBool("air", false);
-            animator.SetBool("crouch", isCrouching);
-            
-            // We set 'run' to true if we are moving (walking or sprinting)
-            // Ideally, rename your Animator parameter to "isMoving" or use a Float for Speed.
-            // Based on your previous code, 'run' likely means "Moving Forward".
-            animator.SetBool("run", currentSpeed > minMoveSpeed); 
-            
-            animator.SetBool("sprint", isSprinting);
-        }
-        else
-        {
-            // AIR LOGIC
-            animator.SetBool("air", true);
-            
-            // Optional: Force movement bools off while in air to prevent "air-walking"
-            // (Unless you want Quake/Source engine style air-strafing visuals)
-            animator.SetBool("run", false);
-            animator.SetBool("sprint", false);
-            
-            // We usually allow crouching in air (Crouch Jumping)
-            animator.SetBool("crouch", isCrouching);
-        }
+        // --- 2. SET ANIMATOR PARAMETERS ---
+        
+        // Using the parameter names from your previous screenshot
+        animator.SetBool("air", !isGrounded);
+        animator.SetBool("crouch", isCrouching);
+        animator.SetBool("run", currentSpeed > 0.1f);
+        animator.SetBool("sprint", isSprinting);
     }
 }

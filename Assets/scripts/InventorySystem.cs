@@ -8,16 +8,19 @@ public class InventorySystem : MonoBehaviour
     public Image[] slotImages;
 
     [Header("Settings")]
+    public float interactRange = 3f; // Distance for pickup and doors
     public Color selectedColor = Color.green;
     public Color normalColor = Color.white;
 
+    // Inventory State
     private ItemData[] slots = new ItemData[5];
     private GameObject currentHandModel;
     private int selectedSlot = 0;
-
-    // NEW: allow holding nothing
     private bool holdingNothing = false;
-    public KeyCode unequipKey = KeyCode.Q;  // Recommended for UX
+    
+    // Keys
+    public KeyCode interactKey = KeyCode.E;
+    public KeyCode unequipKey = KeyCode.Q;
 
     void Start()
     {
@@ -27,52 +30,62 @@ public class InventorySystem : MonoBehaviour
 
     void Update()
     {
+        // 1. Handle Slot Selection
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectSlot(0);
         if (Input.GetKeyDown(KeyCode.Alpha2)) SelectSlot(1);
         if (Input.GetKeyDown(KeyCode.Alpha3)) SelectSlot(2);
         if (Input.GetKeyDown(KeyCode.Alpha4)) SelectSlot(3);
         if (Input.GetKeyDown(KeyCode.Alpha5)) SelectSlot(4);
 
-        // NEW: Unequip / empty hands
+        // 2. Handle Unequip
         if (Input.GetKeyDown(unequipKey))
         {
             ToggleEmptyHands();
         }
 
-        if (Input.GetKeyDown(KeyCode.E))
+        // 3. Handle Interaction (Doors AND Items)
+        if (Input.GetKeyDown(interactKey))
         {
-            TryPickup();
+            HandleInteraction();
         }
     }
 
-    void ToggleEmptyHands()
+    // THIS IS THE NEW MERGED RAYCAST FUNCTION
+    void HandleInteraction()
     {
-        holdingNothing = !holdingNothing;
-
-        if (currentHandModel != null)
-            Destroy(currentHandModel);
-
-        // If now holding nothing, stop here
-        if (holdingNothing) return;
-
-        // If not holding nothing, restore item in current slot
-        SpawnCurrentSlotModel();
-    }
-
-    void TryPickup()
-    {
+        // Shoot ray from the center of the screen (Main Camera)
         Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
         RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, 3f))
+        if (Physics.Raycast(ray, out hit, interactRange))
         {
+            // CHECK 1: Did we hit an Item?
             ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
             if (pickup != null)
             {
                 AddItem(pickup.itemData);
                 pickup.Pickup();
+                return; // Stop here (don't try to open a door if we just picked up an item)
+            }
+
+            // CHECK 2: Did we hit a Door? (Using GetComponentInParent to fix hierarchy issues)
+            DoorController door = hit.collider.GetComponentInParent<DoorController>();
+            if (door != null)
+            {
+                door.ToggleDoor();
+                return;
             }
         }
+    }
+
+    // --- Standard Inventory Logic Below ---
+
+    void ToggleEmptyHands()
+    {
+        holdingNothing = !holdingNothing;
+        if (currentHandModel != null) Destroy(currentHandModel);
+        if (holdingNothing) return;
+        SpawnCurrentSlotModel();
     }
 
     void AddItem(ItemData item)
@@ -83,10 +96,7 @@ public class InventorySystem : MonoBehaviour
             {
                 slots[i] = item;
                 UpdateUI();
-
-                if (i == selectedSlot && !holdingNothing)
-                    SelectSlot(selectedSlot);
-
+                if (i == selectedSlot && !holdingNothing) SelectSlot(selectedSlot);
                 return;
             }
         }
@@ -96,11 +106,9 @@ public class InventorySystem : MonoBehaviour
     void SelectSlot(int index)
     {
         selectedSlot = index;
-
-        // Cancel "empty hands" when selecting a real slot
         holdingNothing = false;
 
-        // Update UI
+        // UI Updates
         for (int i = 0; i < slotImages.Length; i++)
         {
             if (slotImages[i] != null)
@@ -108,7 +116,6 @@ public class InventorySystem : MonoBehaviour
         }
 
         if (currentHandModel != null) Destroy(currentHandModel);
-
         SpawnCurrentSlotModel();
     }
 
@@ -120,8 +127,7 @@ public class InventorySystem : MonoBehaviour
         {
             currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
             currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
-            currentHandModel.transform.localRotation =
-                Quaternion.Euler(slots[selectedSlot].spawnRotation);
+            currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
         }
     }
 
