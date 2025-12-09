@@ -4,43 +4,63 @@ using UnityEngine.UI;
 public class InventorySystem : MonoBehaviour
 {
     [Header("Setup")]
-    public Transform handPosition; // Drag your 'HandHolder' here
-    public Image[] slotImages;     // Drag your 5 UI Images here
+    public Transform handPosition;
+    public Image[] slotImages;
 
     [Header("Settings")]
     public Color selectedColor = Color.green;
     public Color normalColor = Color.white;
 
-    // Internal storage
     private ItemData[] slots = new ItemData[5];
     private GameObject currentHandModel;
     private int selectedSlot = 0;
 
+    // NEW: allow holding nothing
+    private bool holdingNothing = false;
+    public KeyCode unequipKey = KeyCode.Q;  // Recommended for UX
+
     void Start()
     {
         UpdateUI();
-        SelectSlot(0); // Start with slot 1
+        SelectSlot(0);
     }
 
     void Update()
     {
-        // 1. Number Keys Selection
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectSlot(0);
         if (Input.GetKeyDown(KeyCode.Alpha2)) SelectSlot(1);
         if (Input.GetKeyDown(KeyCode.Alpha3)) SelectSlot(2);
         if (Input.GetKeyDown(KeyCode.Alpha4)) SelectSlot(3);
         if (Input.GetKeyDown(KeyCode.Alpha5)) SelectSlot(4);
 
-        // 2. Pickup Logic (Press E)
+        // NEW: Unequip / empty hands
+        if (Input.GetKeyDown(unequipKey))
+        {
+            ToggleEmptyHands();
+        }
+
         if (Input.GetKeyDown(KeyCode.E))
         {
             TryPickup();
         }
     }
 
+    void ToggleEmptyHands()
+    {
+        holdingNothing = !holdingNothing;
+
+        if (currentHandModel != null)
+            Destroy(currentHandModel);
+
+        // If now holding nothing, stop here
+        if (holdingNothing) return;
+
+        // If not holding nothing, restore item in current slot
+        SpawnCurrentSlotModel();
+    }
+
     void TryPickup()
     {
-        // Raycast forward from camera
         Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
         RaycastHit hit;
 
@@ -57,15 +77,16 @@ public class InventorySystem : MonoBehaviour
 
     void AddItem(ItemData item)
     {
-        // Find first empty slot
         for (int i = 0; i < slots.Length; i++)
         {
             if (slots[i] == null)
             {
                 slots[i] = item;
                 UpdateUI();
-                // If we are holding this slot, show the item immediately
-                if (i == selectedSlot) SelectSlot(selectedSlot);
+
+                if (i == selectedSlot && !holdingNothing)
+                    SelectSlot(selectedSlot);
+
                 return;
             }
         }
@@ -76,29 +97,31 @@ public class InventorySystem : MonoBehaviour
     {
         selectedSlot = index;
 
-        // 1. Update UI Colors
-        if (slotImages != null)
+        // Cancel "empty hands" when selecting a real slot
+        holdingNothing = false;
+
+        // Update UI
+        for (int i = 0; i < slotImages.Length; i++)
         {
-            for (int i = 0; i < slotImages.Length; i++)
-            {
-                if (slotImages[i] != null)
-                    slotImages[i].color = (i == selectedSlot) ? selectedColor : normalColor;
-            }
+            if (slotImages[i] != null)
+                slotImages[i].color = (i == selectedSlot) ? selectedColor : normalColor;
         }
 
-        // 2. Remove old model
         if (currentHandModel != null) Destroy(currentHandModel);
 
-        // 3. Spawn new model
+        SpawnCurrentSlotModel();
+    }
+
+    void SpawnCurrentSlotModel()
+    {
+        if (holdingNothing) return;
+
         if (slots[selectedSlot] != null && slots[selectedSlot].model != null)
         {
-            // Spawn the object
             currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
-            
-            // --- APPLY THE CUSTOM DATA FROM ITEMDATA ---
-            // We use the values you typed into the Item file
             currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
-            currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
+            currentHandModel.transform.localRotation =
+                Quaternion.Euler(slots[selectedSlot].spawnRotation);
         }
     }
 
@@ -115,7 +138,7 @@ public class InventorySystem : MonoBehaviour
             }
             else
             {
-                slotImages[i].enabled = false; // Hide empty slots
+                slotImages[i].enabled = false;
             }
         }
     }
