@@ -17,10 +17,11 @@ public class InventorySystem : MonoBehaviour
     private GameObject currentHandModel;
     private int selectedSlot = 0;
     private bool holdingNothing = false;
-    
+
     // Keys
     public KeyCode interactKey = KeyCode.E;
     public KeyCode unequipKey = KeyCode.Q;
+    public KeyCode readKey = KeyCode.F; // Key to read the item in hand
 
     void Start()
     {
@@ -43,14 +44,20 @@ public class InventorySystem : MonoBehaviour
             ToggleEmptyHands();
         }
 
-        // 3. Handle Interaction (Doors AND Items)
+        // 3. Handle Interaction (Doors AND Items on floor)
         if (Input.GetKeyDown(interactKey))
         {
             HandleInteraction();
         }
+
+        // 4. Handle Special Ability (Reading item in hand)
+        if (Input.GetKeyDown(readKey))
+        {
+            CheckHandForSpecialAbility();
+        }
     }
 
-    // THIS IS THE NEW MERGED RAYCAST FUNCTION
+    // --- INTERACTION LOGIC ---
     void HandleInteraction()
     {
         // Shoot ray from the center of the screen (Main Camera)
@@ -65,10 +72,10 @@ public class InventorySystem : MonoBehaviour
             {
                 AddItem(pickup.itemData);
                 pickup.Pickup();
-                return; // Stop here (don't try to open a door if we just picked up an item)
+                return; // Stop here
             }
 
-            // CHECK 2: Did we hit a Door? (Using GetComponentInParent to fix hierarchy issues)
+            // CHECK 2: Did we hit a Door?
             DoorController door = hit.collider.GetComponentInParent<DoorController>();
             if (door != null)
             {
@@ -78,8 +85,27 @@ public class InventorySystem : MonoBehaviour
         }
     }
 
-    // --- Standard Inventory Logic Below ---
+    // --- SPECIAL ABILITY (F Key) ---
+    void CheckHandForSpecialAbility()
+    {
+        // 1. Safety Check: Are we holding anything?
+        if (currentHandModel == null) return;
 
+        // 2. Try to find the "ItemReadable" script on the object in our hand
+        ItemReadable readable = currentHandModel.GetComponent<ItemReadable>();
+
+        // 3. If found, Open the Scroll!
+        if (readable != null)
+        {
+            ScrollManager.Instance.OpenScroll(readable.storyImage);
+            return;
+        }
+
+        // You can add other abilities here later (e.g., Flashlight)
+        Debug.Log("This item has no special 'F' function.");
+    }
+
+    // --- INVENTORY MANAGEMENT ---
     void ToggleEmptyHands()
     {
         holdingNothing = !holdingNothing;
@@ -125,26 +151,30 @@ public class InventorySystem : MonoBehaviour
 
         if (slots[selectedSlot] != null && slots[selectedSlot].model != null)
         {
-            // 1. Spawn the model
+            // 1. Spawn the model in hand
             currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
             currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
             currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
 
-            // ================================================================
-            // 2. FIX: REMOVE PHYSICS AND SCRIPTS SO YOU DON'T CLICK YOURSELF
-            // ================================================================
-            
-            // Remove the Pickup Script so Raycast doesn't see it as an item
+            // 2. Remove Physics/Pickup scripts (so we don't click ourselves)
             ItemPickup pickupScript = currentHandModel.GetComponent<ItemPickup>();
             if (pickupScript != null) Destroy(pickupScript);
-
-            // Remove/Disable Collider so the Ray passes through it
             Collider col = currentHandModel.GetComponent<Collider>();
             if (col != null) Destroy(col);
-
-            // Remove Rigidbody so it doesn't have gravity/physics
             Rigidbody rb = currentHandModel.GetComponent<Rigidbody>();
             if (rb != null) Destroy(rb);
+
+            // =========================================================
+            // 3. TRANSFER THE SPRITE TO THE HAND SCRIPT (The Fix)
+            // =========================================================
+            ItemReadable readable = currentHandModel.GetComponent<ItemReadable>();
+            
+            // If this item has a Readable script AND we have an image in our inventory data...
+            if (readable != null && slots[selectedSlot].storyImage != null)
+            {
+                // Pass the image from the Inventory Data -> Hand Script
+                readable.storyImage = slots[selectedSlot].storyImage;
+            }
         }
     }
 

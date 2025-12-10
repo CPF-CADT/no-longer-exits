@@ -606,7 +606,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1485332292}
-  animParameter: open
+  openStateName: Door_open
+  closeStateName: Door_Close
 --- !u!1 &55320367
 GameObject:
   m_ObjectHideFlags: 0
@@ -10698,7 +10699,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1191065738}
-  animParameter: open
+  openStateName: Door_open
+  closeStateName: Door_Close
 --- !u!1 &1040059610
 GameObject:
   m_ObjectHideFlags: 0
@@ -19301,7 +19303,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1422483168}
-  animParameter: open
+  openStateName: Door_open
+  closeStateName: Door_Close
 --- !u!1 &1647160002
 GameObject:
   m_ObjectHideFlags: 0
@@ -24127,15 +24130,15 @@ PrefabInstance:
       objectReference: {fileID: 2094469549}
     - target: {fileID: 7566319881646774652, guid: c93902559b049394c9e61166bc0815a9, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -4.15
+      value: 9.23
       objectReference: {fileID: 0}
     - target: {fileID: 7566319881646774652, guid: c93902559b049394c9e61166bc0815a9, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 7.29
+      value: 3.43
       objectReference: {fileID: 0}
     - target: {fileID: 7566319881646774652, guid: c93902559b049394c9e61166bc0815a9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -7.88
+      value: -13.63
       objectReference: {fileID: 0}
     - target: {fileID: 7566319881646774652, guid: c93902559b049394c9e61166bc0815a9, type: 3}
       propertyPath: m_LocalRotation.w

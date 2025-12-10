@@ -3,32 +3,51 @@ using UnityEngine;
 public class DoorController : MonoBehaviour
 {
     [Header("Assign Reference")]
-    public Animator doorAnimator; // Drag the Child (TimsAssets_Door) here
+    public Animator doorAnimator; 
 
-    [Header("Settings")]
-    public string animParameter = "open";
+    [Header("State Names")]
+    public string openStateName = "Door_open";
+    public string closeStateName = "Door_Close";
 
     private bool isOpen = false;
+    private float lastInteractTime = 0f; // Stores the time of the last click
 
-    // Called by Player (Pressing E)
     public void ToggleDoor()
     {
-        if (doorAnimator != null)
+        // --- COOLDOWN FIX ---
+        // If less than 0.5 seconds have passed since the last click, IGNORE this click.
+        if (Time.time - lastInteractTime < 0.5f) return; 
+        lastInteractTime = Time.time;
+        // --------------------
+
+        if (doorAnimator == null) return;
+
+        isOpen = !isOpen;
+
+        if (isOpen)
         {
-            isOpen = !isOpen;
-            doorAnimator.SetBool(animParameter, isOpen);
+            doorAnimator.Play(openStateName, 0, 0.0f);
+            Debug.Log("Playing Open Animation Direct");
+        }
+        else
+        {
+            doorAnimator.Play(closeStateName, 0, 0.0f);
+            Debug.Log("Playing Close Animation Direct");
         }
     }
 
-    // NEW: Called by Ghost (Auto-open only)
+    // Optional: Add cooldowns to these too if needed
     public void OpenDoor()
     {
-        // Only open if it is currently closed
-        if (!isOpen && doorAnimator != null)
-        {
-            isOpen = true;
-            doorAnimator.SetBool(animParameter, true);
-            Debug.Log("Ghost opened the door!");
-        }
+        if (doorAnimator == null || isOpen) return;
+        isOpen = true;
+        doorAnimator.Play(openStateName, 0, 0.0f);
+    }
+
+    public void CloseDoor()
+    {
+        if (doorAnimator == null || !isOpen) return;
+        isOpen = false;
+        doorAnimator.Play(closeStateName, 0, 0.0f);
     }
 }

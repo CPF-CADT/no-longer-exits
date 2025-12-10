@@ -4,9 +4,12 @@ using System.Collections;
 public class ChestController : MonoBehaviour
 {
     [Header("Loot Settings")]
-    public GameObject itemToSpawn;      
-    public Transform spawnPoint;        // This will be your "Item" object
-    public float spawnDelay = 0.5f;     
+    public GameObject itemToSpawn;      // Drag your Scroll Prefab here
+    public Transform spawnPoint;        // Where the item appears (usually a child object inside the chest)
+    public float spawnDelay = 0.5f;     // Delay before the item appears
+
+    [Header("Story Settings")]
+    public Sprite storyImageForThisChest; // <--- DRAG YOUR UNIQUE STORY IMAGE HERE
 
     private Animation chestAnim;
     private bool isOpen = false;
@@ -15,17 +18,15 @@ public class ChestController : MonoBehaviour
     {
         chestAnim = GetComponentInChildren<Animation>();
 
-        // Auto-find the "Item" object if you haven't assigned it manually
+        // Auto-find the "Item" spawn point if you haven't assigned it manually
         if (spawnPoint == null)
         {
             Transform foundItemLocation = transform.Find("Item");
-            if (foundItemLocation != null)
-            {
-                spawnPoint = foundItemLocation;
-            }
+            if (foundItemLocation != null) spawnPoint = foundItemLocation;
         }
     }
 
+    // Called by PlayerInteract
     public void OpenChest()
     {
         if (isOpen) return;
@@ -35,11 +36,9 @@ public class ChestController : MonoBehaviour
             chestAnim.Play("ChestAnim");
             isOpen = true;
 
-            // --- NEW CODE: STOP BLOCKING THE RAY ---
-            // This moves the chest to the "Ignore Raycast" layer (Layer 2)
-            // The player can still walk into it, but the interact ray will pass through!
+            // Move the chest to the "Ignore Raycast" layer 
+            // This prevents the chest collider from blocking your click on the item inside
             gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
-            // ---------------------------------------
 
             StartCoroutine(SpawnItemRoutine());
         }
@@ -51,14 +50,29 @@ public class ChestController : MonoBehaviour
 
         if (itemToSpawn != null && spawnPoint != null)
         {
-            // 1. Spawn the object as a CHILD of 'spawnPoint' (the Item object)
+            // 1. Spawn the Item
             GameObject spawnedLoot = Instantiate(itemToSpawn, spawnPoint);
-
-            // 2. Force the position to be exactly 0,0,0 inside that parent
             spawnedLoot.transform.localPosition = Vector3.zero;
-            spawnedLoot.transform.localRotation = Quaternion.identity; // Align rotation too
+            spawnedLoot.transform.localRotation = Quaternion.identity;
 
-            Debug.Log("Item spawned inside 'Item' container at 0,0,0!");
+            // 2. INJECT THE SPRITE
+            // Find the Pickup script on the newly spawned object
+            ItemPickup pickup = spawnedLoot.GetComponent<ItemPickup>();
+            
+            if (pickup != null && storyImageForThisChest != null)
+            {
+                // CRITICAL STEP: Create a UNIQUE CLONE of the ItemData.
+                // If we don't do this, changing the image will change it for EVERY scroll in the game!
+                ItemData uniqueData = Instantiate(pickup.itemData);
+                
+                // Set the specific image on this unique copy
+                uniqueData.storyImage = storyImageForThisChest;
+                
+                // Assign the modified data back to the pickup item
+                pickup.itemData = uniqueData;
+                
+                Debug.Log($"Spawned Scroll with story: {storyImageForThisChest.name}");
+            }
         }
     }
 }

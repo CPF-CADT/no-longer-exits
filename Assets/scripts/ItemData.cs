@@ -5,7 +5,10 @@ public class ItemData : ScriptableObject
 {
     public string itemName;
     public Sprite icon;        
-    public GameObject model;  
+    public GameObject model;   
+    
+    [Header("Story Settings")]
+    public Sprite storyImage; // <--- ADD THIS LINE
 
     [Header("Hand Positioning")]
     public Vector3 spawnPosition;
