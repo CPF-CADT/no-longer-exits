@@ -37,21 +37,23 @@ public class PlayerInteract : MonoBehaviour
             return;
         }
 
-        // First check Door
-        DoorController door = hit.collider.GetComponentInParent<DoorController>();
-        if (door != null)
-        {
-            door.ToggleDoor();
-            return;
-        }
+        // // First check Door
+        // DoorController door = hit.collider.GetComponentInParent<DoorController>();
+        // if (door != null)
+        // {
+        //     door.ToggleDoor();
+        //     return;
+        // }
 
-        // Then check Chest
-        ChestController chest = hit.collider.GetComponentInParent<ChestController>();
-        if (chest != null)
-        {
-            chest.OpenChest();
-            return;
-        }
+        // // Then check Chest
+        // ChestController chest = hit.collider.GetComponentInParent<ChestController>();
+        // if (chest != null)
+        // {
+        //     chest.OpenChest();
+        //     return;
+        // }
+
+        
 
         Debug.Log("<color=yellow>BLOCKED:</color> Hit object named: '" + hit.collider.name + "'");
     }

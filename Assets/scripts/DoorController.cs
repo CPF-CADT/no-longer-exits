@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class DoorController : MonoBehaviour
 {
+    [Header("Lock Settings")]
+    public ItemData requiredKey; // Drag Key ItemData here. Leave EMPTY to unlock by default.
+
     [Header("Assign Reference")]
     public Animator doorAnimator; 
 
@@ -10,16 +13,28 @@ public class DoorController : MonoBehaviour
     public string closeStateName = "Door_Close";
 
     private bool isOpen = false;
-    private float lastInteractTime = 0f; // Stores the time of the last click
+    private float lastInteractTime = 0f; 
 
-    public void ToggleDoor()
+    // UPDATE: We now ask "What item are you holding?"
+    public void ToggleDoor(ItemData itemInHand)
     {
-        // --- COOLDOWN FIX ---
-        // If less than 0.5 seconds have passed since the last click, IGNORE this click.
+        // 1. Cooldown Check
         if (Time.time - lastInteractTime < 0.5f) return; 
         lastInteractTime = Time.time;
-        // --------------------
 
+        // 2. LOCK CHECK
+        // Only check if a key is actually assigned in the Inspector
+        if (requiredKey != null)
+        {
+            // If hand is empty OR holding the wrong item
+            if (itemInHand == null || itemInHand != requiredKey)
+            {
+                Debug.Log($"<color=red>LOCKED:</color> You need the {requiredKey.itemName} to open this door!");
+                return; // STOP HERE. Do not open.
+            }
+        }
+
+        // 3. Normal Door Logic
         if (doorAnimator == null) return;
 
         isOpen = !isOpen;
@@ -36,7 +51,7 @@ public class DoorController : MonoBehaviour
         }
     }
 
-    // Optional: Add cooldowns to these too if needed
+    // Keep these for ghosts/scripts (they bypass the key check)
     public void OpenDoor()
     {
         if (doorAnimator == null || isOpen) return;
