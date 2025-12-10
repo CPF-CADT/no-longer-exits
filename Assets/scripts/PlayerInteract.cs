@@ -5,9 +5,6 @@ public class PlayerInteract : MonoBehaviour
     [Header("Settings")]
     public float interactRange = 3f;
     public KeyCode interactKey = KeyCode.E;
-    
-    // "Thick" ray setting: makes it easier to hit thin objects
-    public float interactRadius = 0.5f; 
 
     [Header("Debug")]
     public bool showDebugRay = true;
@@ -22,13 +19,14 @@ public class PlayerInteract : MonoBehaviour
 
     void ShootRay()
     {
-        // 1. Create a Ray from the EXACT center of the screen (0.5, 0.5)
+        // 1. Create a precise Ray from the center of the screen
         Ray ray = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        
         RaycastHit hit;
 
-        // 2. Shoot the SphereCast
-        bool hasHit = Physics.SphereCast(ray, interactRadius, out hit, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        // 2. Use Raycast (Laser) instead of SphereCast (Ball)
+        // This ensures the ray goes exactly where the crosshair points,
+        // allowing you to pick items inside the chest without hitting the lid.
+        bool hasHit = Physics.Raycast(ray, out hit, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
         // --- VISUAL DEBUGGING ---
         if (showDebugRay)
@@ -37,8 +35,6 @@ public class PlayerInteract : MonoBehaviour
             {
                 // Hit something: Draw GREEN line to the object
                 Debug.DrawLine(ray.origin, hit.point, Color.green, 2f);
-                // Draw a sphere at the hit point to show how "thick" the detection is
-                DebugExtension.DebugWireSphere(hit.point, Color.green, interactRadius, 2f);
             }
             else
             {
@@ -50,46 +46,43 @@ public class PlayerInteract : MonoBehaviour
         // --- INTERACTION LOGIC ---
         if (hasHit)
         {
-            // Check for Door
+            // 1. Check for Door
             DoorController door = hit.collider.GetComponentInParent<DoorController>();
+            
+            // 2. Check for Chest
+            ChestController chest = hit.collider.GetComponentInParent<ChestController>();
 
             if (door != null)
             {
                 door.ToggleDoor();
                 Debug.Log("<color=green>SUCCESS:</color> Opened Door via " + hit.collider.name);
             }
+            else if (chest != null)
+            {
+                chest.OpenChest();
+                Debug.Log("<color=green>SUCCESS:</color> Opened Chest via " + hit.collider.name);
+            }
             else
             {
-                // This tells you EXACTLY what is blocking the ray (e.g., "Wall", "Floor", "InvisibleCollider")
+                // Hit something else (Wall, Floor, etc.)
                 Debug.Log("<color=yellow>BLOCKED:</color> Hit object named: '" + hit.collider.name + "'");
             }
         }
         else
         {
-            Debug.Log("<color=red>MISS:</color> Raycast hit nothing.");
+            if (showDebugRay) Debug.Log("<color=red>MISS:</color> Raycast hit nothing.");
         }
     }
 
-    // Helper to draw the sphere in the Scene view
-    private void OnDrawGizmos()
-    {
-        if (Camera.main == null) return;
+    // Visualizes the Raycast in the Scene view when the game is not running
+    // private void OnDrawGizmos()
+    // {
+    //     if (Camera.main == null) return;
 
-        // Visualize the "Thickness" of your interact ray in the Scene view
-        Gizmos.color = new Color(1, 0, 0, 0.3f);
-        Ray ray = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        Gizmos.DrawWireSphere(ray.origin + ray.direction * interactRange, interactRadius);
-    }
-}
-
-// Simple helper class to draw spheres in the Game/Scene view for Debugging
-public static class DebugExtension
-{
-    public static void DebugWireSphere(Vector3 origin, Color color, float radius, float duration)
-    {
-        // This is a simplified visualizer. 
-        // Real wire spheres are hard to draw with Debug.DrawLine without a complex loop, 
-        // so we usually just rely on the line + console log.
-        // But the OnDrawGizmos above will help you see the size in the editor!
-    }
+    //     Gizmos.color = Color.red;
+    //     Ray ray = Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+        
+    //     // Draw a straight line representing the precise Raycast
+    //     Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * interactRange);
+    // }
 }

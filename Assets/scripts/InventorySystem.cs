@@ -125,9 +125,26 @@ public class InventorySystem : MonoBehaviour
 
         if (slots[selectedSlot] != null && slots[selectedSlot].model != null)
         {
+            // 1. Spawn the model
             currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
             currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
             currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
+
+            // ================================================================
+            // 2. FIX: REMOVE PHYSICS AND SCRIPTS SO YOU DON'T CLICK YOURSELF
+            // ================================================================
+            
+            // Remove the Pickup Script so Raycast doesn't see it as an item
+            ItemPickup pickupScript = currentHandModel.GetComponent<ItemPickup>();
+            if (pickupScript != null) Destroy(pickupScript);
+
+            // Remove/Disable Collider so the Ray passes through it
+            Collider col = currentHandModel.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+
+            // Remove Rigidbody so it doesn't have gravity/physics
+            Rigidbody rb = currentHandModel.GetComponent<Rigidbody>();
+            if (rb != null) Destroy(rb);
         }
     }
 
