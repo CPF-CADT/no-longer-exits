@@ -1,5 +1,6 @@
 using UnityEngine;
 
+
 public class PlayerInteract : MonoBehaviour
 {
     [Header("Settings")]
@@ -31,29 +32,20 @@ public class PlayerInteract : MonoBehaviour
                 hasHit ? Color.green : Color.red, 2f);
         }
 
-        if (!hasHit) 
+        if (!hasHit)
         {
             if (showDebugRay) Debug.Log("<color=red>MISS:</color> Raycast hit nothing.");
             return;
         }
+        // --- NEW CODE STARTS HERE ---
 
-        // // First check Door
-        // DoorController door = hit.collider.GetComponentInParent<DoorController>();
-        // if (door != null)
-        // {
-        //     door.ToggleDoor();
-        //     return;
-        // }
-
-        // // Then check Chest
-        // ChestController chest = hit.collider.GetComponentInParent<ChestController>();
-        // if (chest != null)
-        // {
-        //     chest.OpenChest();
-        //     return;
-        // }
-
-        
+        // 1. Check for NPC
+        NPCInteract npc = hit.collider.GetComponent<NPCInteract>();
+        if (npc != null)
+        {
+            npc.Interact();
+            return; // Stop here so we don't pick up items at the same time
+        }
 
         Debug.Log("<color=yellow>BLOCKED:</color> Hit object named: '" + hit.collider.name + "'");
     }
