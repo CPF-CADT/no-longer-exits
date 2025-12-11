@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using System.Collections.Generic;
+using System.Collections;
 
 public class NPCRoaming : MonoBehaviour
 {
@@ -8,7 +9,6 @@ public class NPCRoaming : MonoBehaviour
     public NavMeshAgent agent;
     public Transform model;
     public Transform player;
-    public Transform cameraScarePoint;
 
     [Header("Waypoints")]
     public Transform[] waypoints;
@@ -21,19 +21,19 @@ public class NPCRoaming : MonoBehaviour
     [Header("Sensors - Vision")]
     public float visionRange = 15f;
     [Range(0, 360)] public float viewAngle = 120f;
-    public LayerMask obstacleMask; 
+    public LayerMask obstacleMask;
 
     [Header("Sensors - Hearing")]
-    public float hearingRange = 10f; 
-    public float runSpeedThreshold = 4f; 
+    public float hearingRange = 10f;
+    public float runSpeedThreshold = 4f;
 
     [Header("Sensors - Doors")]
-    public float doorInteractRange = 5f; // Ghost opens doors within 5 units
-    public LayerMask doorLayer; // Optional: Optimize if doors have a specific layer
+    public float doorInteractRange = 5f;
 
     [Header("Close Range Scare Detection")]
     public float scareDistance = 2f;
     public bool alreadyTriggeredScare = false;
+    public float deathDelayTime = 2.0f; // Time to wait before respawning
 
     [Header("Flying Settings")]
     public float hoverHeight = 0.2f;
@@ -60,7 +60,11 @@ public class NPCRoaming : MonoBehaviour
         if (player == null)
         {
             GameObject playerObj = GameObject.FindWithTag("Player");
-            if (playerObj != null) player = playerObj.transform;
+            if (playerObj != null)
+            {
+                player = playerObj.transform;
+                lastPlayerPosition = player.position;
+            }
         }
 
         GoToNextWaypoint();
@@ -71,7 +75,7 @@ public class NPCRoaming : MonoBehaviour
         CalculatePlayerSpeed();
 
         // 1. Check if we should chase the player
-        if (player != null)
+        if (player != null && !alreadyTriggeredScare)
         {
             if (HideBox.IsPlayerHiddenAnywhere())
             {
@@ -98,41 +102,55 @@ public class NPCRoaming : MonoBehaviour
         }
 
         // 2. Movement Logic
-        if (followingPlayer && player != null)
+        if (!alreadyTriggeredScare)
         {
-            agent.SetDestination(player.position);
-        }
-        else
-        {
-            if (!agent.pathPending && agent.remainingDistance < waypointThreshold)
+            if (followingPlayer && player != null)
             {
-                GoToNextWaypoint();
+                agent.SetDestination(player.position);
+            }
+            else
+            {
+                if (!agent.pathPending && agent.remainingDistance < waypointThreshold)
+                {
+                    GoToNextWaypoint();
+                }
             }
         }
 
         // 3. Other Behaviors
-        CheckNearbyDoors(); // <--- NEW FUNCTION HERE
+        CheckNearbyDoors();
         CheckCloseDetection();
         HoverMotion();
         RotateBody();
         RotateModel();
     }
 
-    // --- NEW: DOOR LOGIC ---
+    private void CalculatePlayerSpeed()
+    {
+        if (player == null) return;
+        
+        // Prevent massive speed spikes if player teleported (respawned) far away
+        float moveDist = (player.position - lastPlayerPosition).magnitude;
+        if (moveDist > 5f) 
+        {
+            playerCurrentSpeed = 0f;
+        }
+        else 
+        {
+            playerCurrentSpeed = moveDist / Time.deltaTime;
+        }
+
+        lastPlayerPosition = player.position;
+    }
+
     private void CheckNearbyDoors()
     {
-        // Find all colliders within 5 units
-        // You can add 'doorLayer' as a second parameter if you want to optimize performance
         Collider[] hitColliders = Physics.OverlapSphere(transform.position, doorInteractRange);
-
         foreach (var hit in hitColliders)
         {
-            // Look for the DoorController on the object or its parent
             DoorController door = hit.GetComponentInParent<DoorController>();
-            
             if (door != null)
             {
-                // Force the door open (will ignore it if already open)
                 door.OpenDoor();
             }
         }
@@ -167,13 +185,6 @@ public class NPCRoaming : MonoBehaviour
         return false;
     }
 
-    private void CalculatePlayerSpeed()
-    {
-        if (player == null) return;
-        playerCurrentSpeed = (player.position - lastPlayerPosition).magnitude / Time.deltaTime;
-        lastPlayerPosition = player.position;
-    }
-
     // --- MOVEMENT & VISUALS ---
 
     private void GoToNextWaypoint()
@@ -185,6 +196,8 @@ public class NPCRoaming : MonoBehaviour
 
     private void RotateBody()
     {
+        if (alreadyTriggeredScare) return;
+
         Vector3 velocity = agent.velocity;
         velocity.y = 0;
         if (velocity.sqrMagnitude > 0.01f)
@@ -196,28 +209,25 @@ public class NPCRoaming : MonoBehaviour
 
     private void RotateModel()
     {
-        if (model != null)
-            model.localRotation = Quaternion.Euler(modelForwardOffset);
+        if (model != null) model.localRotation = Quaternion.Euler(modelForwardOffset);
     }
 
     private void HoverMotion()
     {
         float baseY = agent.nextPosition.y;
         float hoverOffset = Mathf.Sin(Time.time * hoverFrequency) * hoverAmplitude;
-        float minHover = 0.1f;
-        float maxHover = 0.2f;
-        float finalHover = Mathf.Clamp(hoverHeight + hoverOffset, minHover, maxHover);
         Vector3 pos = transform.position;
-        pos.y = baseY + finalHover;
+        pos.y = baseY + Mathf.Clamp(hoverHeight + hoverOffset, 0.1f, 0.2f);
         transform.position = pos;
     }
 
-     private void CheckCloseDetection()
+    // --- DEATH & RESPAWN LOGIC ---
+
+    private void CheckCloseDetection()
     {
         if (player == null || alreadyTriggeredScare) return;
         if (HideBox.IsPlayerHiddenAnywhere()) return;
 
-        // Use the Model position for distance (more accurate for floating ghosts)
         Transform targetPart = model != null ? model : transform;
         float dist = Vector3.Distance(targetPart.position, player.position);
 
@@ -225,42 +235,95 @@ public class NPCRoaming : MonoBehaviour
         {
             alreadyTriggeredScare = true;
 
-            // 1. FREEZE
+            // 1. FREEZE GHOST
             agent.isStopped = true;
             agent.velocity = Vector3.zero;
             transform.LookAt(player);
-            // Ensure the floating head looks at the player too
-            if (model != null) model.LookAt(player.position + Vector3.up * 1.5f); 
+            if (model != null) model.LookAt(player.position + Vector3.up * 1.5f);
 
-            // 2. DISABLE PLAYER
-            FirstPersonLook lookScript = player.GetComponentInChildren<FirstPersonLook>();
-            if (lookScript == null && Camera.main != null) 
-                lookScript = Camera.main.GetComponent<FirstPersonLook>();
-            
-            if (lookScript != null) {
-                lookScript.freezeCamera = true;
-                lookScript.enabled = false; 
-            }
+            // 2. DISABLE PLAYER CONTROLS
+            TogglePlayerControls(false);
 
-            FirstPersonMovement moveScript = player.GetComponent<FirstPersonMovement>();
-            if (moveScript != null) moveScript.enabled = false;
-            
-            Rigidbody rb = player.GetComponent<Rigidbody>();
-            if (rb != null) rb.isKinematic = true;
-
-            // 3. TRIGGER CAMERA
+            // 3. TRIGGER CAMERA SCARES
             if (GhostCameraController.Instance != null)
             {
-                // *** THE FIX: Pass 'targetPart' (The Model) instead of 'transform' ***
-                // This ensures the camera goes to the FLOATING HEAD, not the feet on the ground.
                 GhostCameraController.Instance.MoveCameraToPoint(targetPart, 0.5f);
             }
+
+            // 4. START DEATH SEQUENCE
+            StartCoroutine(HandleDeathSequence());
         }
+    }
+
+    private IEnumerator HandleDeathSequence()
+    {
+        // 1. Wait for the scare animation (Ghost screaming face)
+        yield return new WaitForSeconds(deathDelayTime);
+
+        // 2. FORCE CAMERA RESET (Crucial Fix)
+        // This ensures the camera detaches from the ghost and snaps back to the player
+        if (GhostCameraController.Instance != null)
+        {
+            GhostCameraController.Instance.ResetCamera();
+        }
+
+        // 3. Call SaveManager to Respawn/Teleport Player
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.RespawnPlayer();
+        }
+        else
+        {
+            // Fallback: Reload scene if no SaveManager exists
+            UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        }
+
+        // 4. Wait a split second for physics to settle after teleport
+        yield return new WaitForSeconds(0.1f);
+
+        // 5. Reset Ghost State so it stops chasing/scaring
+        ResetGhostState();
+
+        // 6. Give Control back to Player
+        TogglePlayerControls(true);
+    }
+
+    private void ResetGhostState()
+    {
+        alreadyTriggeredScare = false;
+        followingPlayer = false; // Stop chasing
+        agent.isStopped = false; // Resume walking
+
+        // Reset player position tracker so ghost doesn't "hear" the teleport
+        if (player != null) lastPlayerPosition = player.position;
+
+        // Force ghost to pick a new random waypoint
+        GoToNextWaypoint();
+    }
+
+    private void TogglePlayerControls(bool state)
+    {
+        if (player == null) return;
+
+        FirstPersonLook lookScript = player.GetComponentInChildren<FirstPersonLook>();
+        if (lookScript == null && Camera.main != null)
+            lookScript = Camera.main.GetComponent<FirstPersonLook>();
+
+        if (lookScript != null)
+        {
+            lookScript.freezeCamera = !state;
+            lookScript.enabled = state;
+        }
+
+        FirstPersonMovement moveScript = player.GetComponent<FirstPersonMovement>();
+        if (moveScript != null) moveScript.enabled = state;
+
+        Rigidbody rb = player.GetComponent<Rigidbody>();
+        if (rb != null) rb.isKinematic = !state;
     }
 
     void OnDrawGizmosSelected()
     {
-        // Draw Door Interaction Range
         Gizmos.color = Color.magenta;
         Gizmos.DrawWireSphere(transform.position, doorInteractRange);
 
