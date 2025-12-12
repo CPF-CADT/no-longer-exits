@@ -5,17 +5,17 @@ using UnityEngine.UI;
 public class WorldInteractable : MonoBehaviour
 {
     [Header("UI Settings")]
-    public GameObject hintCanvasObject;   // Hint canvas
-    public Image keyIcon;                 // Optional
-    public TextMeshProUGUI actionText;    // Optional
+    public GameObject hintCanvasObject;   // The background canvas for the hint
+    public Image keyIcon;                 
+    public TextMeshProUGUI actionText;    // Drag your Hint Text here (NOT Dialogue Text)
 
     [Header("Data")]
-    public Sprite keySprite;              // Optional
-    public string actionDescription = ""; // Optional text
+    public Sprite keySprite;              
+    public string actionDescription = ""; 
 
     void Start()
     {
-        // Set icon only if both are assigned
+        // 1. Handle the Icon
         if (keyIcon != null)
         {
             if (keySprite != null)
@@ -25,25 +25,25 @@ public class WorldInteractable : MonoBehaviour
             }
             else
             {
-                keyIcon.enabled = false; // No image? Hide the icon.
+                keyIcon.enabled = false; 
             }
         }
 
-        // Set action text if available
+        // 2. Handle the Text (FIXED VERSION)
         if (actionText != null)
         {
             if (!string.IsNullOrEmpty(actionDescription))
             {
                 actionText.text = actionDescription;
-                actionText.enabled = true;
+                // We do NOT toggle .enabled here to avoid breaking shared texts
             }
             else
             {
-                actionText.enabled = false; // No text? Hide it.
+                actionText.text = ""; // Just clear the text, don't disable the component
             }
         }
 
-        // Hide the UI by default
+        // 3. Hide the whole Hint Canvas by default
         if (hintCanvasObject != null)
             hintCanvasObject.SetActive(false);
     }

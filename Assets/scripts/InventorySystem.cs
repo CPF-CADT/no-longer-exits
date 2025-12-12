@@ -190,4 +190,12 @@ public class InventorySystem : MonoBehaviour
             }
         }
     }
+
+    public ItemData GetCurrentItem()
+    {
+        if (holdingNothing) return null;
+        if (slots[selectedSlot] == null) return null;
+        
+        return slots[selectedSlot];
+    }
 }

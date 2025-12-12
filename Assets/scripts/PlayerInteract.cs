@@ -5,64 +5,99 @@ public class PlayerInteract : MonoBehaviour
     [Header("Settings")]
     public float interactRange = 3f;
     public KeyCode interactKey = KeyCode.E;
+    
+    // NEW: Click to use item on Ghost
+    public KeyCode useItemKey = KeyCode.Mouse0; 
+    public float ghostBanishRange = 5f;
 
     [Header("Debug")]
     public bool showDebugRay = true;
 
-    void Update()
+    private InventorySystem inventory;
+
+    void Start()
     {
-        if (Input.GetKeyDown(interactKey))
-            ShootRay();
+        // Try to find the inventory on this object
+        inventory = GetComponent<InventorySystem>();
+
+        // SAFETY CHECK: If not found, try finding it on the parent or anywhere in the player
+        if (inventory == null)
+            inventory = GetComponentInParent<InventorySystem>();
+            
+        if (inventory == null)
+            Debug.LogError("CRITICAL ERROR: PlayerInteract cannot find the 'InventorySystem' script on the Player!");
     }
 
-    void ShootRay()
+    void Update()
+    {
+        // 1. Normal Interaction (E)
+        if (Input.GetKeyDown(interactKey))
+            ShootRay(false);
+
+        // 2. Use Item (Left Click)
+        if (Input.GetKeyDown(useItemKey))
+            ShootRay(true);
+    }
+
+    void ShootRay(bool isUsingItem)
     {
         Camera cam = Camera.main;
         if (cam == null) return;
 
-        // Shoot from center of the screen
+        float range = isUsingItem ? ghostBanishRange : interactRange;
+
         Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
         RaycastHit hit;
 
-        // Perform Raycast
-        bool hasHit = Physics.Raycast(ray, out hit, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        bool hasHit = Physics.Raycast(ray, out hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
 
-        // Draw Debug Line
         if (showDebugRay)
         {
-            Debug.DrawLine(ray.origin, hasHit ? hit.point : ray.origin + ray.direction * interactRange,
+            Debug.DrawLine(ray.origin, hasHit ? hit.point : ray.origin + ray.direction * range,
                 hasHit ? Color.green : Color.red, 2f);
         }
 
-        // If nothing hit, exit
-        if (!hasHit)
+        if (!hasHit) return;
+
+        // --- GHOST BANISHMENT (Left Click) ---
+        if (isUsingItem)
         {
-            if (showDebugRay) Debug.Log("<color=red>MISS:</color> Raycast hit nothing.");
+            // SAFETY CHECK: If inventory is missing, stop here to prevent crash
+            if (inventory == null) 
+            {
+                Debug.LogWarning("Cannot banish ghost: Inventory System is missing!");
+                return;
+            }
+
+            NPCRoaming ghost = hit.collider.GetComponent<NPCRoaming>();
+            
+            if (ghost != null)
+            {
+                // Get the ACTUAL ItemData from inventory
+                ItemData itemInHand = inventory.GetCurrentItem();
+                
+                // Pass it to the ghost to check
+                ghost.AttemptBanish(itemInHand);
+            }
             return;
         }
 
-        // --- INTERACTION LOGIC ---
+        // --- NORMAL INTERACTION (E) ---
 
-        // 1. Check for NPC
+        // 1. NPC Dialogue
         NPCInteract npc = hit.collider.GetComponent<NPCInteract>();
         if (npc != null)
         {
             npc.Interact();
-            if (showDebugRay) Debug.Log("Interacted with NPC: " + hit.collider.name);
             return; 
         }
 
-        // 2. Check for Save Station (NEW ADDITION)
+        // 2. Save Station
         SaveStation station = hit.collider.GetComponent<SaveStation>();
         if (station != null)
         {
-            station.Interact(); // Calls the function to update the spawn point
-            if (showDebugRay) Debug.Log("<color=cyan>SAVE:</color> Game Saved at " + hit.collider.name);
+            station.Interact();
             return;
         }
-
-        // 3. Fallback (Hit something non-interactive)
-        if (showDebugRay) 
-            Debug.Log("<color=yellow>BLOCKED:</color> Hit object named: '" + hit.collider.name + "' but it was not interactable.");
     }
 }
