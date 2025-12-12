@@ -18,3 +18,5 @@ MonoBehaviour:
   storyImage: {fileID: 0}
   spawnPosition: {x: 0, y: 0, z: 0}
   spawnRotation: {x: 0, y: 0, z: 0}
+  spawnScale: {x: 1, y: 1, z: 1}
+  isConsumable: 1

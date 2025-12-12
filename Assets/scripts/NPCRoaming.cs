@@ -127,9 +127,9 @@ public class NPCRoaming : MonoBehaviour
 
     // --- NEW FUNCTION TO FIX THE ERROR ---
     // This allows PlayerInteract to send the ItemData
-    public void AttemptBanish(ItemData itemUsed)
+    public bool AttemptBanish(ItemData itemUsed)
     {
-        if (isBanished || alreadyTriggeredScare) return;
+        if (isBanished || alreadyTriggeredScare) return false;
 
         // Check if the item matches
         if (itemRequiredToBanish != null)
@@ -137,12 +137,13 @@ public class NPCRoaming : MonoBehaviour
             if (itemUsed == null || itemUsed != itemRequiredToBanish)
             {
                 Debug.Log("Ghost: That item does not scare me!");
-                return; // Wrong item, do nothing
+                return false; // Wrong item, do nothing
             }
         }
 
         // If correct, start the routine
         StartCoroutine(BanishRoutine());
+        return true;
     }
     // -------------------------------------
 

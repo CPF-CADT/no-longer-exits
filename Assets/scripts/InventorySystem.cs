@@ -17,11 +17,11 @@ public class InventorySystem : MonoBehaviour
     private GameObject currentHandModel;
     private int selectedSlot = 0;
     private bool holdingNothing = false;
-
+    
     // Keys
     public KeyCode interactKey = KeyCode.E;
     public KeyCode unequipKey = KeyCode.Q;
-    public KeyCode readKey = KeyCode.F; 
+    public KeyCode readKey = KeyCode.F;
 
     void Start()
     {
@@ -31,89 +31,60 @@ public class InventorySystem : MonoBehaviour
 
     void Update()
     {
-        // 1. Slot Selection
+        // Slot selection
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectSlot(0);
         if (Input.GetKeyDown(KeyCode.Alpha2)) SelectSlot(1);
         if (Input.GetKeyDown(KeyCode.Alpha3)) SelectSlot(2);
         if (Input.GetKeyDown(KeyCode.Alpha4)) SelectSlot(3);
         if (Input.GetKeyDown(KeyCode.Alpha5)) SelectSlot(4);
 
-        // 2. Unequip
+        // Unequip
         if (Input.GetKeyDown(unequipKey)) ToggleEmptyHands();
 
-        // 3. Interaction (Doors, Items, Chests)
+        // Interaction
         if (Input.GetKeyDown(interactKey)) HandleInteraction();
 
-        // 4. Special Ability (Reading)
+        // Reading / special ability
         if (Input.GetKeyDown(readKey)) CheckHandForSpecialAbility();
     }
 
-    // --- INTERACTION LOGIC (Includes Key Checks) ---
     void HandleInteraction()
     {
         Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, interactRange))
+        if (Physics.Raycast(ray, out RaycastHit hit, interactRange))
         {
-            // CHECK 1: Items
+            // Item pickup
             ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
             if (pickup != null)
             {
                 AddItem(pickup.itemData);
                 pickup.Pickup();
-                return; 
-            }
-
-            // CHECK 2: Doors (UPDATED)
-            DoorController door = hit.collider.GetComponentInParent<DoorController>();
-            if (door != null)
-            {
-                // We pass the item in our current slot to the door!
-                // The door checks if it matches the "Required Key"
-                door.ToggleDoor(slots[selectedSlot]); 
                 return;
             }
 
-            // CHECK 3: Chests
+            // Door
+            DoorController door = hit.collider.GetComponentInParent<DoorController>();
+            if (door != null)
+            {
+                door.ToggleDoor(slots[selectedSlot]);
+                return;
+            }
+
+            // Chest
             ChestController chest = hit.collider.GetComponentInParent<ChestController>();
             if (chest != null)
             {
-                // We pass the item in our current slot to the chest
                 chest.OpenChest(slots[selectedSlot]);
                 return;
             }
         }
     }
 
-    // --- SPECIAL ABILITY (Simple Read - No Transform) ---
-    void CheckHandForSpecialAbility()
-    {
-        if (currentHandModel == null) return;
-
-        // Find the script that holds the image
-        ItemReadable readable = currentHandModel.GetComponent<ItemReadable>();
-
-        if (readable != null)
-        {
-            // Open UI Directly (No 3D destruction)
-            if (ScrollManager.Instance != null && readable.storyImage != null)
-            {
-                ScrollManager.Instance.OpenScroll(readable.storyImage);
-            }
-            return;
-        }
-
-        Debug.Log("This item cannot be read.");
-    }
-
-    // --- INVENTORY MANAGEMENT ---
     void ToggleEmptyHands()
     {
         holdingNothing = !holdingNothing;
         if (currentHandModel != null) Destroy(currentHandModel);
-        if (holdingNothing) return;
-        SpawnCurrentSlotModel();
+        if (!holdingNothing) SpawnCurrentSlotModel();
     }
 
     void AddItem(ItemData item)
@@ -148,28 +119,44 @@ public class InventorySystem : MonoBehaviour
 
     void SpawnCurrentSlotModel()
     {
-        if (holdingNothing) return;
+        if (holdingNothing || slots[selectedSlot] == null || slots[selectedSlot].model == null)
+            return;
 
-        if (slots[selectedSlot] != null && slots[selectedSlot].model != null)
+        if (currentHandModel != null) Destroy(currentHandModel);
+
+        // Instantiate as child of handPosition
+        currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
+
+        // Apply exact spawn values from ItemData
+        currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
+        currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
+        currentHandModel.transform.localScale = slots[selectedSlot].spawnScale;
+
+        // Cleanup physics
+        var pickup = currentHandModel.GetComponent<ItemPickup>();
+        if (pickup != null) Destroy(pickup);
+
+        var col = currentHandModel.GetComponent<Collider>();
+        if (col != null) Destroy(col);
+
+        var rb = currentHandModel.GetComponent<Rigidbody>();
+        if (rb != null) Destroy(rb);
+
+        // Transfer readable story image
+        var readable = currentHandModel.GetComponent<ItemReadable>();
+        if (readable != null && slots[selectedSlot].storyImage != null)
+            readable.storyImage = slots[selectedSlot].storyImage;
+    }
+
+    void CheckHandForSpecialAbility()
+    {
+        if (currentHandModel == null) return;
+
+        ItemReadable readable = currentHandModel.GetComponent<ItemReadable>();
+        if (readable != null && readable.storyImage != null && ScrollManager.Instance != null)
         {
-            currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
-            currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
-            currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
-
-            // Cleanup Physics
-            ItemPickup pickupScript = currentHandModel.GetComponent<ItemPickup>();
-            if (pickupScript != null) Destroy(pickupScript);
-            Collider col = currentHandModel.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-            Rigidbody rb = currentHandModel.GetComponent<Rigidbody>();
-            if (rb != null) Destroy(rb);
-
-            // Transfer Sprite from Inventory Data to Hand Script
-            ItemReadable readable = currentHandModel.GetComponent<ItemReadable>();
-            if (readable != null && slots[selectedSlot].storyImage != null)
-            {
-                readable.storyImage = slots[selectedSlot].storyImage;
-            }
+            ScrollManager.Instance.OpenScroll(readable.storyImage);
+            ConsumeCurrentItem();
         }
     }
 
@@ -193,9 +180,20 @@ public class InventorySystem : MonoBehaviour
 
     public ItemData GetCurrentItem()
     {
-        if (holdingNothing) return null;
-        if (slots[selectedSlot] == null) return null;
-        
+        if (holdingNothing || slots[selectedSlot] == null) return null;
         return slots[selectedSlot];
+    }
+
+    public void ConsumeCurrentItem()
+    {
+        if (slots[selectedSlot] == null) return;
+
+        if (slots[selectedSlot].isConsumable)
+        {
+            Destroy(currentHandModel);
+            slots[selectedSlot] = null;
+            UpdateUI();
+            SpawnCurrentSlotModel();
+        }
     }
 }

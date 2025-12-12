@@ -5,9 +5,9 @@ public class PlayerInteract : MonoBehaviour
     [Header("Settings")]
     public float interactRange = 3f;
     public KeyCode interactKey = KeyCode.E;
-    
+
     // NEW: Click to use item on Ghost
-    public KeyCode useItemKey = KeyCode.Mouse0; 
+    public KeyCode useItemKey = KeyCode.Mouse0;
     public float ghostBanishRange = 5f;
 
     [Header("Debug")]
@@ -23,7 +23,7 @@ public class PlayerInteract : MonoBehaviour
         // SAFETY CHECK: If not found, try finding it on the parent or anywhere in the player
         if (inventory == null)
             inventory = GetComponentInParent<InventorySystem>();
-            
+
         if (inventory == null)
             Debug.LogError("CRITICAL ERROR: PlayerInteract cannot find the 'InventorySystem' script on the Player!");
     }
@@ -63,22 +63,30 @@ public class PlayerInteract : MonoBehaviour
         if (isUsingItem)
         {
             // SAFETY CHECK: If inventory is missing, stop here to prevent crash
-            if (inventory == null) 
+            if (inventory == null)
             {
                 Debug.LogWarning("Cannot banish ghost: Inventory System is missing!");
                 return;
             }
 
             NPCRoaming ghost = hit.collider.GetComponent<NPCRoaming>();
-            
+
             if (ghost != null)
             {
-                // Get the ACTUAL ItemData from inventory
                 ItemData itemInHand = inventory.GetCurrentItem();
-                
-                // Pass it to the ghost to check
-                ghost.AttemptBanish(itemInHand);
+
+                if (itemInHand != null)
+                {
+                    bool banished = ghost.AttemptBanish(itemInHand); // return true if banish worked
+
+                    // Only consume the item if it's marked as consumable and banish succeeded
+                    if (banished && itemInHand.isConsumable)
+                    {
+                        inventory.ConsumeCurrentItem();
+                    }
+                }
             }
+
             return;
         }
 
@@ -89,7 +97,7 @@ public class PlayerInteract : MonoBehaviour
         if (npc != null)
         {
             npc.Interact();
-            return; 
+            return;
         }
 
         // 2. Save Station
