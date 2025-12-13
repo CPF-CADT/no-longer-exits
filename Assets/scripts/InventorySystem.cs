@@ -3,6 +3,12 @@ using UnityEngine.UI;
 
 public class InventorySystem : MonoBehaviour
 {
+    public static InventorySystem Instance;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
     [Header("Setup")]
     public Transform handPosition;
     public Image[] slotImages;
@@ -161,6 +167,65 @@ public class InventorySystem : MonoBehaviour
     {
         if (holdingNothing || slots[selectedSlot] == null) return null;
         return slots[selectedSlot];
+    }
+
+    public string[] GetSaveInventory()
+    {
+        string[] data = new string[slots.Length];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            data[i] = (slots[i] != null) ? slots[i].name : null;
+        }
+        return data;
+    }
+
+    public int GetSelectedSlotIndex() => selectedSlot;
+
+    public bool GetHoldingNothing() => holdingNothing;
+
+    public void LoadInventoryFromNames(string[] names, int selectedIndex, bool holdingEmpty)
+    {
+        if (names == null) return;
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            slots[i] = null;
+            if (i < names.Length && !string.IsNullOrEmpty(names[i]))
+            {
+                // Try generated registry asset first (Resources/ItemRegistry.asset)
+                ItemRegistryData registryData = Resources.Load<ItemRegistryData>("ItemRegistry");
+                if (registryData != null)
+                {
+                    slots[i] = registryData.FindByName(names[i]);
+                    if (slots[i] != null) continue;
+                }
+
+                // Then try runtime-scene registry if present
+                if (ItemRegistry.Instance != null)
+                {
+                    slots[i] = ItemRegistry.Instance.FindByName(names[i]);
+                    if (slots[i] != null) continue;
+                }
+
+                // Fallback to Resources/Items folder (if you placed ItemData there)
+                ItemData[] allItems = Resources.LoadAll<ItemData>("Items");
+                for (int j = 0; j < allItems.Length; j++)
+                {
+                    if (allItems[j].name == names[i] || allItems[j].itemName == names[i])
+                    {
+                        slots[i] = allItems[j];
+                        break;
+                    }
+                }
+            }
+        }
+
+        UpdateUI();
+        selectedSlot = Mathf.Clamp(selectedIndex, 0, slots.Length - 1);
+        holdingNothing = holdingEmpty;
+
+        if (currentHandModel != null) Destroy(currentHandModel);
+        if (!holdingNothing) SpawnCurrentSlotModel();
     }
 
     public void ConsumeCurrentItem()

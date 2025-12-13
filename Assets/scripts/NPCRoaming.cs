@@ -34,6 +34,8 @@ public class NPCRoaming : MonoBehaviour
     public float scareDistance = 2f;
     public bool alreadyTriggeredScare = false;
     public float deathDelayTime = 2.0f; 
+    [Tooltip("Minimum distance from player for chosen respawn waypoint after a scare")]
+    public float minWaypointDistanceFromPlayer = 6f;
 
     // --- BANISHMENT SETTINGS ---
     [Header("Banishment (Item Protection)")]
@@ -289,10 +291,13 @@ public class NPCRoaming : MonoBehaviour
         yield return new WaitForSeconds(deathDelayTime);
         if (GhostCameraController.Instance != null) GhostCameraController.Instance.ResetCamera();
 
+        // Respawn the player first (teleport player to saved location)
         if (SaveManager.Instance != null) SaveManager.Instance.RespawnPlayer();
         else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
 
         yield return new WaitForSeconds(0.1f);
+        // Move ghost away from the player's new location to avoid immediate re-triggering
+        MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
         ResetGhostState();
         TogglePlayerControls(true);
     }
@@ -305,6 +310,55 @@ public class NPCRoaming : MonoBehaviour
         isBanished = false; 
         if (player != null) lastPlayerPosition = player.position;
         GoToNextWaypoint();
+    }
+
+    private void MoveGhostToDifferentWaypoint(float minDistanceFromPlayer)
+    {
+        if (originalWaypoints == null || originalWaypoints.Count == 0) return;
+        if (player == null) return;
+
+        int attempts = 0;
+        int chosen = -1;
+        // Try to find a waypoint that is not the current one and is sufficiently far from the player
+        while (attempts < 10)
+        {
+            int idx = Random.Range(0, originalWaypoints.Count);
+            if (idx == currentWaypointIndex) { attempts++; continue; }
+            Transform wp = originalWaypoints[idx];
+            if (wp == null) { attempts++; continue; }
+            float distToPlayer = Vector3.Distance(wp.position, player.position);
+            if (distToPlayer >= minDistanceFromPlayer)
+            {
+                chosen = idx;
+                break;
+            }
+            attempts++;
+        }
+
+        // If none found, pick any different waypoint
+        if (chosen == -1)
+        {
+            if (originalWaypoints.Count == 1) chosen = 0;
+            else
+            {
+                chosen = Random.Range(0, originalWaypoints.Count);
+                if (chosen == currentWaypointIndex) chosen = (chosen + 1) % originalWaypoints.Count;
+            }
+        }
+
+        if (chosen >= 0 && chosen < originalWaypoints.Count && originalWaypoints[chosen] != null)
+        {
+            currentWaypointIndex = chosen;
+            Vector3 spawnPos = originalWaypoints[chosen].position;
+            agent.Warp(spawnPos);
+            transform.position = spawnPos;
+            // ensure model and collider are active
+            if (model != null) model.gameObject.SetActive(true);
+            Collider col = GetComponent<Collider>();
+            if (col != null) col.enabled = true;
+            // pick a new destination to continue roaming
+            GoToNextWaypoint();
+        }
     }
 
     private void TogglePlayerControls(bool state)
