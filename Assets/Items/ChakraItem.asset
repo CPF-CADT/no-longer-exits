@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c34b5017a9440824ca07e69940e6d3e0, type: 3}
+  m_Name: ChakraItem
+  m_EditorClassIdentifier: 
+  itemName: Chakra
+  icon: {fileID: 21300000, guid: aac87f8a5d332414bb456659bb7bf519, type: 3}
+  model: {fileID: 6339500263930217984, guid: 25a71f5558afd0d4194e645c322d6753, type: 3}
+  storyImage: {fileID: 0}
+  spawnPosition: {x: 0, y: 0, z: 0}
+  spawnRotation: {x: 0, y: 0, z: 0}
+  spawnScale: {x: 0.2, y: 0.2, z: 0.2}
+  isConsumable: 1
+  weaponType: 0

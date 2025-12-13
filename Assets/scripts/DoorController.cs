@@ -22,6 +22,8 @@ public class DoorController : MonoBehaviour
     private float lastInteractTime = 0f;
     private float messageHideTime = 0f;
 
+    public bool lockedByPuzzle = false;
+
     void Update()
     {
         if (lockMessageText != null && lockMessageText.enabled && Time.time > messageHideTime)
@@ -30,10 +32,12 @@ public class DoorController : MonoBehaviour
 
     public void ToggleDoor(ItemData itemInHand)
     {
+        if (lockedByPuzzle) return;  // cannot open manually if locked by puzzle
+
         if (Time.time - lastInteractTime < 0.5f) return;
         lastInteractTime = Time.time;
 
-        // LOCK CHECK
+        // Key check
         if (requiredKey != null)
         {
             if (itemInHand == null || itemInHand != requiredKey)
@@ -46,12 +50,9 @@ public class DoorController : MonoBehaviour
         if (doorAnimator == null) return;
 
         isOpen = !isOpen;
-
-        if (isOpen)
-            doorAnimator.Play(openStateName, 0, 0f);
-        else
-            doorAnimator.Play(closeStateName, 0, 0f);
+        doorAnimator.Play(isOpen ? openStateName : closeStateName, 0, 0f);
     }
+
 
     private void ShowLockMessage()
     {

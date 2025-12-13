@@ -15,5 +15,8 @@ MonoBehaviour:
   itemName: StoryScroll
   icon: {fileID: 21300000, guid: 703f1ad70fc66244ea5954a0900bdab8, type: 3}
   model: {fileID: 2434066992249451825, guid: 36639d3973058bf4795e16d1e479ff30, type: 3}
-  spawnPosition: {x: 0, y: 0, z: 0}
+  storyImage: {fileID: 0}
+  spawnPosition: {x: -0.48, y: 0.55, z: 0.5}
   spawnRotation: {x: 0, y: 0, z: 0}
+  spawnScale: {x: 4, y: 4, z: 4}
+  isConsumable: 0
