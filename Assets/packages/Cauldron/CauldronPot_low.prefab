@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 3158776454244389293}
   - component: {fileID: 3076166413778344764}
   - component: {fileID: 81486502565007802}
+  - component: {fileID: 7335992271997466009}
+  - component: {fileID: 2609552319694955271}
   m_Layer: 0
   m_Name: CauldronPot_low
   m_TagString: Untagged
@@ -28,7 +30,7 @@ Transform:
   m_GameObject: {fileID: 8323562699626541373}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071067}
-  m_LocalPosition: {x: -0.03, y: -0.04, z: -0}
+  m_LocalPosition: {x: 0, y: -0.46777445, z: 0}
   m_LocalScale: {x: 15, y: 15, z: 15}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -105,3 +107,35 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.041224647
   m_Center: {x: 0, y: 0, z: 0.031184968}
+--- !u!114 &7335992271997466009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8323562699626541373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 170a8fe3e4082d54687d52b91518065e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactKey: 101
+  player: {fileID: 0}
+  playerModel: {fileID: 0}
+  interactionDistance: 2
+--- !u!114 &2609552319694955271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8323562699626541373}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85cf24ad96f90bd43a972dd6a17b6e6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hintText: {fileID: 0}
+  interactDistance: 1
+  hideText: E to Hide
+  leaveText: E to Leave

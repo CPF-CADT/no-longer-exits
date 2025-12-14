@@ -65,6 +65,12 @@ public class WeaponSocket : MonoBehaviour
         currentWeaponModel.transform.localRotation = Quaternion.identity;
         currentWeaponModel.transform.localScale = weapon.model.transform.localScale;
 
+        // Remove pickup and physics components from the instantiated model
+        // so InventorySystem / ItemPickup won't accidentally register it as a floor pickup
+        if (currentWeaponModel.TryGetComponent<ItemPickup>(out var pickup)) Destroy(pickup);
+        if (currentWeaponModel.TryGetComponent<Collider>(out var col)) Destroy(col);
+        if (currentWeaponModel.TryGetComponent<Rigidbody>(out var rb)) Destroy(rb);
+
         // Puzzle progress check
         if (weapon.weaponType == requiredWeapon && puzzleManager != null)
         {

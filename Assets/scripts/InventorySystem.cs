@@ -49,6 +49,9 @@ public class InventorySystem : MonoBehaviour
 
     void HandleInteraction()
     {
+        // If PlayerInteract already handled an interaction this frame, skip to avoid duplicates
+        if (PlayerInteract.lastInteractFrame == Time.frameCount) return;
+
         Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
         if (!Physics.Raycast(ray, out RaycastHit hit, interactRange)) return;
 
@@ -56,8 +59,12 @@ public class InventorySystem : MonoBehaviour
         ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
         if (pickup != null)
         {
-            AddItem(pickup.itemData);
-            pickup.Pickup();
+            // Claim pickup first to avoid duplicate pickup from multiple systems
+            if (pickup.TryClaim())
+            {
+                AddItem(pickup.itemData);
+                pickup.Pickup();
+            }
             return;
         }
 

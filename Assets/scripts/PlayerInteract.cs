@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class PlayerInteract : MonoBehaviour
 {
+    // Frame index of the last successful interaction handled by this component
+    public static int lastInteractFrame = -1;
+
     [Header("Settings")]
     public float interactRange = 3f;
     public KeyCode interactKey = KeyCode.E;
@@ -60,8 +63,11 @@ public class PlayerInteract : MonoBehaviour
                 if (itemInHand != null)
                 {
                     bool banished = ghost.AttemptBanish(itemInHand);
-                    if (banished && itemInHand.isConsumable)
-                        inventory.ConsumeCurrentItem();
+                        if (banished && itemInHand.isConsumable)
+                            inventory.ConsumeCurrentItem();
+
+                        // mark that we handled an interaction this frame
+                        lastInteractFrame = Time.frameCount;
                 }
             }
             return;
@@ -69,10 +75,10 @@ public class PlayerInteract : MonoBehaviour
 
         // Normal interaction
         NPCInteract npc = hit.collider.GetComponent<NPCInteract>();
-        if (npc != null) { npc.Interact(); return; }
+        if (npc != null) { npc.Interact(); lastInteractFrame = Time.frameCount; return; }
 
         SaveStation station = hit.collider.GetComponent<SaveStation>();
-        if (station != null) { station.Interact(); return; }
+        if (station != null) { station.Interact(); lastInteractFrame = Time.frameCount; return; }
 
         WeaponSocket socket = hit.collider.GetComponent<WeaponSocket>();
         ItemData currentItem = inventory.GetCurrentItem();
@@ -86,6 +92,7 @@ public class PlayerInteract : MonoBehaviour
                 VishnuWeaponItemData weapon = socket.TakeWeapon();
                 if (weapon != null)
                     inventory.AddItem(weapon);
+                lastInteractFrame = Time.frameCount;
                 return;
             }
 
@@ -94,6 +101,7 @@ public class PlayerInteract : MonoBehaviour
             {
                 socket.TryPlaceWeapon(weaponInHand);
                 inventory.ConsumeCurrentItem();
+                lastInteractFrame = Time.frameCount;
             }
 
             return;
@@ -105,8 +113,13 @@ public class PlayerInteract : MonoBehaviour
             ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
             if (pickup != null)
             {
-                inventory.AddItem(pickup.itemData);
-                pickup.Pickup();
+                // Claim pickup first to avoid duplicate pickup from InventorySystem
+                if (pickup.TryClaim())
+                {
+                    inventory.AddItem(pickup.itemData);
+                    pickup.Pickup();
+                    lastInteractFrame = Time.frameCount;
+                }
             }
         }
     }
