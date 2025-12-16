@@ -53,40 +53,41 @@ public class PlayerInteract : MonoBehaviour
         if (showDebugRay)
             Debug.DrawLine(ray.origin, hit.point, Color.green, 2f);
 
+        ItemData currentItem = inventory.GetCurrentItem();
+
+        // --- Using item (ghost banish)
         if (isUsingItem)
         {
-            // Ghost banishment
             NPCRoaming ghost = hit.collider.GetComponent<NPCRoaming>();
-            if (ghost != null)
+            if (ghost != null && currentItem != null)
             {
-                ItemData itemInHand = inventory.GetCurrentItem();
-                if (itemInHand != null)
-                {
-                    bool banished = ghost.AttemptBanish(itemInHand);
-                        if (banished && itemInHand.isConsumable)
-                            inventory.ConsumeCurrentItem();
+                bool banished = ghost.AttemptBanish(currentItem);
+                if (banished && currentItem.isConsumable)
+                    inventory.ConsumeCurrentItem();
 
-                        // mark that we handled an interaction this frame
-                        lastInteractFrame = Time.frameCount;
-                }
+                lastInteractFrame = Time.frameCount;
             }
             return;
         }
 
-        // Normal interaction
+        // --- Normal interactions
         NPCInteract npc = hit.collider.GetComponent<NPCInteract>();
         if (npc != null) { npc.Interact(); lastInteractFrame = Time.frameCount; return; }
 
         SaveStation station = hit.collider.GetComponent<SaveStation>();
         if (station != null) { station.Interact(); lastInteractFrame = Time.frameCount; return; }
 
-        WeaponSocket socket = hit.collider.GetComponent<WeaponSocket>();
-        ItemData currentItem = inventory.GetCurrentItem();
+        DoorController door = hit.collider.GetComponentInParent<DoorController>();
+        if (door != null)
+        {
+            door.ToggleDoor(currentItem);
+            lastInteractFrame = Time.frameCount;
+            return;
+        }
 
-        // If interacting with a weapon socket
+        WeaponSocket socket = hit.collider.GetComponent<WeaponSocket>();
         if (socket != null)
         {
-            // If socket is occupied, pick up weapon back
             if (socket.isOccupied)
             {
                 VishnuWeaponItemData weapon = socket.TakeWeapon();
@@ -96,30 +97,32 @@ public class PlayerInteract : MonoBehaviour
                 return;
             }
 
-            // Only place a weapon if holding one
             if (currentItem is VishnuWeaponItemData weaponInHand)
             {
                 socket.TryPlaceWeapon(weaponInHand);
                 inventory.ConsumeCurrentItem();
                 lastInteractFrame = Time.frameCount;
             }
-
             return;
         }
 
-        // Item pickup: only allow if not holding anything
+        ChestController chest = hit.collider.GetComponentInParent<ChestController>();
+        if (chest != null)
+        {
+            chest.OpenChest(currentItem);
+            lastInteractFrame = Time.frameCount;
+            return;
+        }
+
+        // --- Item pickup: only allow if not holding anything
         if (currentItem == null)
         {
             ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
-            if (pickup != null)
+            if (pickup != null && pickup.TryClaim())
             {
-                // Claim pickup first to avoid duplicate pickup from InventorySystem
-                if (pickup.TryClaim())
-                {
-                    inventory.AddItem(pickup.itemData);
-                    pickup.Pickup();
-                    lastInteractFrame = Time.frameCount;
-                }
+                inventory.AddItem(pickup.itemData);
+                pickup.Pickup();
+                lastInteractFrame = Time.frameCount;
             }
         }
     }

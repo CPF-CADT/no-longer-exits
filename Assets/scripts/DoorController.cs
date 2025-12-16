@@ -30,6 +30,10 @@ public class DoorController : MonoBehaviour
             lockMessageText.enabled = false;
     }
 
+    /// <summary>
+    /// Call this when the player interacts with the door
+    /// </summary>
+    /// <param name="itemInHand">The currently selected item from InventorySystem</param>
     public void ToggleDoor(ItemData itemInHand)
     {
         if (lockedByPuzzle) return;  // cannot open manually if locked by puzzle
@@ -37,10 +41,10 @@ public class DoorController : MonoBehaviour
         if (Time.time - lastInteractTime < 0.5f) return;
         lastInteractTime = Time.time;
 
-        // Key check
+        // --- KEY CHECK: compare by uniqueID ---
         if (requiredKey != null)
         {
-            if (itemInHand == null || itemInHand != requiredKey)
+            if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
             {
                 ShowLockMessage();
                 return;
@@ -53,7 +57,6 @@ public class DoorController : MonoBehaviour
         doorAnimator.Play(isOpen ? openStateName : closeStateName, 0, 0f);
     }
 
-
     private void ShowLockMessage()
     {
         if (lockMessageText == null) return;
@@ -63,6 +66,9 @@ public class DoorController : MonoBehaviour
         messageHideTime = Time.time + messageDuration;
     }
 
+    /// <summary>
+    /// Opens the door without needing a key
+    /// </summary>
     public void OpenDoor()
     {
         if (doorAnimator == null || isOpen) return;
@@ -70,6 +76,9 @@ public class DoorController : MonoBehaviour
         doorAnimator.Play(openStateName, 0, 0f);
     }
 
+    /// <summary>
+    /// Closes the door
+    /// </summary>
     public void CloseDoor()
     {
         if (doorAnimator == null || !isOpen) return;

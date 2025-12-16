@@ -15,9 +15,10 @@ MonoBehaviour:
   itemName: Chakra
   icon: {fileID: 21300000, guid: 39591eb4cbc612441b3a0563ebd19746, type: 3}
   model: {fileID: 5938805139299035343, guid: 5d12a9a00ab6a9b48823dc868981f9e2, type: 3}
-  storyImage: {fileID: 0}
   spawnPosition: {x: -0.128, y: 0.868, z: 0.665}
   spawnRotation: {x: 0, y: 0, z: 0}
   spawnScale: {x: 0.015, y: 0.015, z: 0.015}
   isConsumable: 1
+  storyImage: {fileID: 0}
+  uniqueID: 25914160-cd3d-4107-8c31-09da49b2b2b7
   weaponType: 0

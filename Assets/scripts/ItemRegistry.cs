@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class ItemRegistry : MonoBehaviour
@@ -26,4 +27,20 @@ public class ItemRegistry : MonoBehaviour
 
         return null;
     }
+
+    internal ItemData FindByUniqueID(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        if (items == null) return null;
+
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (items[i] == null) continue;
+
+            if (items[i].uniqueID == id) return items[i];
+        }
+
+        return null;
+    }
+
 }

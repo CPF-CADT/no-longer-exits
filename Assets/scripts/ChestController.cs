@@ -16,7 +16,7 @@ public class ChestController : MonoBehaviour
     public Sprite storyImageForThisChest;
 
     [Header("UI")]
-    public TextMeshProUGUI lockMessageText;  // Drag UI Text here
+    public TextMeshProUGUI lockMessageText;  
     public string lockedMessage = "The chest is locked.";
     public float messageDuration = 2f;
 
@@ -46,10 +46,10 @@ public class ChestController : MonoBehaviour
     {
         if (isOpen) return;
 
-        // LOCK CHECK
+        // --- LOCK CHECK: compare by uniqueID ---
         if (requiredKey != null)
         {
-            if (itemInHand == null || itemInHand != requiredKey)
+            if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
             {
                 ShowLockMessage();
                 return;

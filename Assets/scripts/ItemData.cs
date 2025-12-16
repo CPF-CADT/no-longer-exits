@@ -1,4 +1,8 @@
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
+using System;
 
 [CreateAssetMenu(fileName = "New Item", menuName = "Inventory/Item")]
 public class ItemData : ScriptableObject
@@ -6,15 +10,19 @@ public class ItemData : ScriptableObject
     public string itemName;
     public Sprite icon;
     public GameObject model;
+    public Vector3 spawnPosition, spawnRotation, spawnScale;
+    public bool isConsumable;
+    public Sprite storyImage;
 
-    [Header("Story Settings")]
-    public Sprite storyImage; // For readable/scroll items
+    [HideInInspector]
+    public string uniqueID;
 
-    [Header("Hand Positioning")]
-    public Vector3 spawnPosition;
-    public Vector3 spawnRotation;
-    public Vector3 spawnScale = Vector3.one; // <-- New: scale in hand
-
-    [Tooltip("Destroy this item after use?")]
-    public bool isConsumable = false;
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(uniqueID))
+            uniqueID = Guid.NewGuid().ToString();
+        EditorUtility.SetDirty(this);
+    }
+#endif
 }
