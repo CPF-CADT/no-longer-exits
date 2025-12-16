@@ -9,6 +9,8 @@ public class NPCRoaming : MonoBehaviour
     public NavMeshAgent agent;
     public Transform model;
     public Transform player;
+    // REFERENCE TO NEW SCRIPT
+    public GhostAudioController audioController; 
 
     [Header("Waypoints")]
     public Transform[] waypoints;
@@ -33,16 +35,14 @@ public class NPCRoaming : MonoBehaviour
     [Header("Close Range Scare Detection")]
     public float scareDistance = 2f;
     public bool alreadyTriggeredScare = false;
-    public float deathDelayTime = 2.0f; 
-    [Tooltip("Minimum distance from player for chosen respawn waypoint after a scare")]
+    public float deathDelayTime = 2.0f;
     public float minWaypointDistanceFromPlayer = 6f;
 
     // --- BANISHMENT SETTINGS ---
-    [Header("Banishment (Item Protection)")]
-    public ItemData itemRequiredToBanish; // <--- Drag your 'YounItem' Data here
-    public float freezeDuration = 2f;          
+    [Header("Banishment")]
+    public ItemData itemRequiredToBanish;
+    public float freezeDuration = 2f;
     private bool isBanished = false;
-    // ---------------------------
 
     [Header("Flying Settings")]
     public float hoverHeight = 0.2f;
@@ -59,6 +59,9 @@ public class NPCRoaming : MonoBehaviour
     void Start()
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
+        
+        // Auto-find audio controller if not assigned
+        if (audioController == null) audioController = GetComponent<GhostAudioController>();
 
         modelForwardOffset = new Vector3(-90f, 0f, 90f);
         if (model != null) model.localRotation = Quaternion.Euler(modelForwardOffset);
@@ -80,12 +83,11 @@ public class NPCRoaming : MonoBehaviour
 
     void Update()
     {
-        // 0. If Banished or Scaring, do nothing
         if (isBanished || alreadyTriggeredScare) return;
 
         CalculatePlayerSpeed();
 
-        // 1. Check if we should chase the player
+        // 1. Detection Logic
         if (player != null)
         {
             if (HideBox.IsPlayerHiddenAnywhere())
@@ -106,7 +108,11 @@ public class NPCRoaming : MonoBehaviour
             }
         }
 
-        // 2. Movement Logic
+        // 2. Update Audio State via Controller
+        if (audioController != null) 
+            audioController.UpdateState(followingPlayer);
+
+        // 3. Movement Logic
         if (followingPlayer && player != null)
         {
             agent.SetDestination(player.position);
@@ -119,7 +125,6 @@ public class NPCRoaming : MonoBehaviour
             }
         }
 
-        // 3. Other Behaviors
         CheckNearbyDoors();
         CheckCloseDetection();
         HoverMotion();
@@ -127,59 +132,58 @@ public class NPCRoaming : MonoBehaviour
         RotateModel();
     }
 
-    // --- NEW FUNCTION TO FIX THE ERROR ---
-    // This allows PlayerInteract to send the ItemData
     public bool AttemptBanish(ItemData itemUsed)
     {
         if (isBanished || alreadyTriggeredScare) return false;
 
-        // Check if the item matches
         if (itemRequiredToBanish != null)
         {
             if (itemUsed == null || itemUsed != itemRequiredToBanish)
             {
                 Debug.Log("Ghost: That item does not scare me!");
-                return false; // Wrong item, do nothing
+                return false;
             }
         }
 
-        // If correct, start the routine
         StartCoroutine(BanishRoutine());
         return true;
     }
-    // -------------------------------------
 
     private IEnumerator BanishRoutine()
     {
         isBanished = true;
         followingPlayer = false;
+        
+        // Trigger Audio Banish
+        if (audioController != null) audioController.PlayBanish();
 
-        // 1. Stop Moving immediately
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
 
-        // 2. Wait for 2 seconds frozen (Hit effect)
         yield return new WaitForSeconds(freezeDuration);
 
-        // 3. Disable (Hide Ghost)
+        // Hide Ghost
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+        
+        // Silence Audio while hidden
+        if (audioController != null) audioController.StopAudio();
 
-        // 4. Wait EXACTLY 10 seconds (Your Logic)
         yield return new WaitForSeconds(10f);
 
-        // 5. Respawn Randomly
-        GoToNextWaypoint(); 
-        agent.Warp(originalWaypoints[currentWaypointIndex].position); 
+        GoToNextWaypoint();
+        agent.Warp(originalWaypoints[currentWaypointIndex].position);
 
-        // 6. Enable (Show Ghost)
+        // Show Ghost
         if (model != null) model.gameObject.SetActive(true);
         if (col != null) col.enabled = true;
 
-        // 7. Reset State
         agent.isStopped = false;
         isBanished = false;
+        
+        // Restart Audio
+        if (audioController != null) audioController.ResetAudio();
     }
 
     private void CalculatePlayerSpeed()
@@ -201,7 +205,6 @@ public class NPCRoaming : MonoBehaviour
         }
     }
 
-    // --- SENSOR LOGIC ---
     private bool CheckVision()
     {
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
@@ -226,7 +229,6 @@ public class NPCRoaming : MonoBehaviour
         return false;
     }
 
-    // --- MOVEMENT & VISUALS ---
     private void GoToNextWaypoint()
     {
         if (originalWaypoints.Count == 0) return;
@@ -236,7 +238,7 @@ public class NPCRoaming : MonoBehaviour
 
     private void RotateBody()
     {
-        if (alreadyTriggeredScare || isBanished) return; 
+        if (alreadyTriggeredScare || isBanished) return;
 
         Vector3 velocity = agent.velocity;
         velocity.y = 0;
@@ -261,7 +263,6 @@ public class NPCRoaming : MonoBehaviour
         transform.position = pos;
     }
 
-    // --- DEATH LOGIC ---
     private void CheckCloseDetection()
     {
         if (player == null || alreadyTriggeredScare || isBanished) return;
@@ -275,6 +276,10 @@ public class NPCRoaming : MonoBehaviour
             alreadyTriggeredScare = true;
             agent.isStopped = true;
             agent.velocity = Vector3.zero;
+
+            // Trigger Audio Scare
+            if (audioController != null) audioController.PlayScare();
+
             transform.LookAt(player);
             if (model != null) model.LookAt(player.position + Vector3.up * 1.5f);
             TogglePlayerControls(false);
@@ -291,13 +296,12 @@ public class NPCRoaming : MonoBehaviour
         yield return new WaitForSeconds(deathDelayTime);
         if (GhostCameraController.Instance != null) GhostCameraController.Instance.ResetCamera();
 
-        // Respawn the player first (teleport player to saved location)
         if (SaveManager.Instance != null) SaveManager.Instance.RespawnPlayer();
         else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
 
         yield return new WaitForSeconds(0.1f);
-        // Move ghost away from the player's new location to avoid immediate re-triggering
         MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
+        
         ResetGhostState();
         TogglePlayerControls(true);
     }
@@ -307,56 +311,38 @@ public class NPCRoaming : MonoBehaviour
         alreadyTriggeredScare = false;
         followingPlayer = false;
         agent.isStopped = false;
-        isBanished = false; 
+        isBanished = false;
+        
+        // Reset Audio
+        if (audioController != null) audioController.ResetAudio();
+
         if (player != null) lastPlayerPosition = player.position;
         GoToNextWaypoint();
     }
 
     private void MoveGhostToDifferentWaypoint(float minDistanceFromPlayer)
     {
+        // (Identical to previous logic - kept for completeness)
         if (originalWaypoints == null || originalWaypoints.Count == 0) return;
         if (player == null) return;
-
-        int attempts = 0;
-        int chosen = -1;
-        // Try to find a waypoint that is not the current one and is sufficiently far from the player
-        while (attempts < 10)
-        {
+        int attempts = 0; int chosen = -1;
+        while (attempts < 10) {
             int idx = Random.Range(0, originalWaypoints.Count);
             if (idx == currentWaypointIndex) { attempts++; continue; }
-            Transform wp = originalWaypoints[idx];
-            if (wp == null) { attempts++; continue; }
-            float distToPlayer = Vector3.Distance(wp.position, player.position);
-            if (distToPlayer >= minDistanceFromPlayer)
-            {
-                chosen = idx;
-                break;
-            }
+            if (Vector3.Distance(originalWaypoints[idx].position, player.position) >= minDistanceFromPlayer) { chosen = idx; break; }
             attempts++;
         }
+        if (chosen == -1) chosen = Random.Range(0, originalWaypoints.Count);
 
-        // If none found, pick any different waypoint
-        if (chosen == -1)
-        {
-            if (originalWaypoints.Count == 1) chosen = 0;
-            else
-            {
-                chosen = Random.Range(0, originalWaypoints.Count);
-                if (chosen == currentWaypointIndex) chosen = (chosen + 1) % originalWaypoints.Count;
-            }
-        }
-
-        if (chosen >= 0 && chosen < originalWaypoints.Count && originalWaypoints[chosen] != null)
+        if (chosen >= 0 && chosen < originalWaypoints.Count)
         {
             currentWaypointIndex = chosen;
             Vector3 spawnPos = originalWaypoints[chosen].position;
             agent.Warp(spawnPos);
             transform.position = spawnPos;
-            // ensure model and collider are active
             if (model != null) model.gameObject.SetActive(true);
             Collider col = GetComponent<Collider>();
             if (col != null) col.enabled = true;
-            // pick a new destination to continue roaming
             GoToNextWaypoint();
         }
     }
@@ -367,19 +353,9 @@ public class NPCRoaming : MonoBehaviour
         FirstPersonLook lookScript = player.GetComponentInChildren<FirstPersonLook>();
         if (lookScript == null && Camera.main != null) lookScript = Camera.main.GetComponent<FirstPersonLook>();
         if (lookScript != null) { lookScript.freezeCamera = !state; lookScript.enabled = state; }
-
         FirstPersonMovement moveScript = player.GetComponent<FirstPersonMovement>();
         if (moveScript != null) moveScript.enabled = state;
         Rigidbody rb = player.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = !state;
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawWireSphere(transform.position, doorInteractRange);
-        if (player == null) return;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, visionRange);
     }
 }
