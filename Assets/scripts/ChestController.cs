@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections;
 using TMPro;
 
-public class ChestController : MonoBehaviour
+public class ChestController : MonoBehaviour, ISaveable
 {
     [Header("Lock Settings")]
     public ItemData requiredKey;
@@ -16,13 +16,30 @@ public class ChestController : MonoBehaviour
     public Sprite storyImageForThisChest;
 
     [Header("UI")]
-    public TextMeshProUGUI lockMessageText;  
+    public TextMeshProUGUI lockMessageText;
     public string lockedMessage = "The chest is locked.";
     public float messageDuration = 2f;
 
     private Animation chestAnim;
     private bool isOpen = false;
     private float messageHideTime = 0f;
+
+    [Header("Persistence")]
+    public PersistentID persistentID;
+
+    // This variable saves whether the item has EVER been created.
+    [SerializeField] private bool hasSpawned = false;
+
+    private void Awake()
+    {
+        if (persistentID == null)
+            persistentID = GetComponent<PersistentID>();
+
+        if (persistentID == null)
+        {
+            Debug.LogError($"[ChestController] '{name}' is missing a PersistentID component! Fix this in the Inspector.");
+        }
+    }
 
     void Start()
     {
@@ -46,7 +63,7 @@ public class ChestController : MonoBehaviour
     {
         if (isOpen) return;
 
-        // --- LOCK CHECK: compare by uniqueID ---
+        // --- LOCK CHECK ---
         if (requiredKey != null)
         {
             if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
@@ -56,21 +73,26 @@ public class ChestController : MonoBehaviour
             }
         }
 
+        PerformOpen();
+    }
+
+    private void PerformOpen()
+    {
+        isOpen = true;
+
         if (chestAnim != null)
-        {
             chestAnim.Play("ChestAnim");
-            isOpen = true;
 
-            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+        gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
 
+        // Only spawn if we haven't done so before
+        if (!hasSpawned)
             StartCoroutine(SpawnItemRoutine());
-        }
     }
 
     private void ShowLockMessage()
     {
         if (lockMessageText == null) return;
-
         lockMessageText.text = lockedMessage;
         lockMessageText.enabled = true;
         messageHideTime = Time.time + messageDuration;
@@ -79,21 +101,76 @@ public class ChestController : MonoBehaviour
     IEnumerator SpawnItemRoutine()
     {
         yield return new WaitForSeconds(spawnDelay);
+        SpawnLootObject();
+    }
 
+    private void SpawnLootObject()
+    {
         if (itemToSpawn != null && spawnPoint != null)
         {
             GameObject spawnedLoot = Instantiate(itemToSpawn, spawnPoint);
             spawnedLoot.transform.localPosition = Vector3.zero;
             spawnedLoot.transform.localRotation = Quaternion.identity;
 
-            ItemPickup pickup = spawnedLoot.GetComponent<ItemPickup>();
+            // Mark as spawned immediately so we never do it again
+            hasSpawned = true;
 
+            ItemPickup pickup = spawnedLoot.GetComponent<ItemPickup>();
             if (pickup != null && storyImageForThisChest != null)
             {
                 ItemData uniqueData = Instantiate(pickup.itemData);
                 uniqueData.storyImage = storyImageForThisChest;
                 pickup.itemData = uniqueData;
             }
+        }
+    }
+
+    // -------------------- ISaveable --------------------
+    public string GetUniqueID()
+    {
+        return persistentID != null ? persistentID.id : "";
+    }
+
+    public SaveObjectState CaptureState()
+    {
+        return new SaveObjectState
+        {
+            id = GetUniqueID(),
+            type = "Chest",
+            chestOpen = isOpen,
+            chestSpawned = hasSpawned
+        };
+    }
+
+    public void RestoreState(SaveObjectState state)
+    {
+        if (state == null || state.type != "Chest") return;
+
+        isOpen = state.chestOpen;
+        hasSpawned = state.chestSpawned;
+
+        // Visual Restore
+        if (isOpen)
+        {
+            if (chestAnim != null)
+            {
+                chestAnim.Play("ChestAnim");
+                // Fast forward animation to the end
+                foreach (AnimationState animState in chestAnim)
+                {
+                    animState.normalizedTime = 1.0f;
+                }
+                chestAnim.Sample();
+            }
+
+            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+            // --- IMPORTANT CHANGE ---
+            // We do NOT call SpawnLootObject here anymore.
+            // If 'hasSpawned' is true, the chest assumes the player has either:
+            // 1. Taken the item (it's in Inventory save).
+            // 2. Left the item (it's gone).
+            // This prevents infinite loot duplication.
         }
     }
 }

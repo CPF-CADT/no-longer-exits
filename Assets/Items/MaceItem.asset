@@ -20,5 +20,5 @@ MonoBehaviour:
   spawnScale: {x: 0.08, y: 0.08, z: 0.08}
   isConsumable: 1
   storyImage: {fileID: 0}
-  uniqueID: 9320730a-e007-4dd3-b5df-96720a0c2b0e
+  uniqueID: 82ee7670-d6b0-46bf-9980-65d626013579
   weaponType: 3

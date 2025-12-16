@@ -1,8 +1,8 @@
+using UnityEngine;
+using System;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
-using UnityEngine;
-using System;
 
 [CreateAssetMenu(fileName = "New Item", menuName = "Inventory/Item")]
 public class ItemData : ScriptableObject
@@ -14,15 +14,32 @@ public class ItemData : ScriptableObject
     public bool isConsumable;
     public Sprite storyImage;
 
-    [HideInInspector]
+    [Header("System")]
+    [Tooltip("Auto-generated unique ID. Do not change manually.")]
     public string uniqueID;
 
-#if UNITY_EDITOR
     private void OnValidate()
     {
+        // Automatically generate ID if it is missing
         if (string.IsNullOrEmpty(uniqueID))
+        {
             uniqueID = Guid.NewGuid().ToString();
-        EditorUtility.SetDirty(this);
+            SetDirty();
+        }
     }
+
+    [ContextMenu("Generate New ID")]
+    private void GenerateNewID()
+    {
+        uniqueID = Guid.NewGuid().ToString();
+        SetDirty();
+    }
+
+    private void SetDirty()
+    {
+#if UNITY_EDITOR
+        // This tells Unity "The data changed, please save this to the disk"
+        EditorUtility.SetDirty(this);
 #endif
+    }
 }

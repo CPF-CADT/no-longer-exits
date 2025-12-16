@@ -1,7 +1,7 @@
 using UnityEngine;
 using TMPro;
 
-public class DoorController : MonoBehaviour
+public class DoorController : MonoBehaviour, ISaveable
 {
     [Header("Lock Settings")]
     public ItemData requiredKey;
@@ -10,8 +10,8 @@ public class DoorController : MonoBehaviour
     public Animator doorAnimator;
 
     [Header("UI")]
-    public TextMeshProUGUI lockMessageText;   // Drag your TMP UI here
-    public string lockedMessage = "The door is locked."; // Customizable message
+    public TextMeshProUGUI lockMessageText;   
+    public string lockedMessage = "The door is locked."; 
     public float messageDuration = 2f;
 
     [Header("State Names")]
@@ -23,6 +23,23 @@ public class DoorController : MonoBehaviour
     private float messageHideTime = 0f;
 
     public bool lockedByPuzzle = false;
+    
+    [Header("Persistence")]
+    public PersistentID persistentID;
+
+    private void Awake()
+    {
+        // 1. Try to find the component if not manually assigned
+        if (persistentID == null)
+            persistentID = GetComponent<PersistentID>();
+
+        // 2. ERROR CHECK: If still missing, warn the user.
+        // We do NOT use AddComponent here to avoid random ID generation.
+        if (persistentID == null)
+        {
+            Debug.LogError($"[DoorController] '{name}' is missing a PersistentID component! Save/Load will fail.");
+        }
+    }
 
     void Update()
     {
@@ -33,15 +50,14 @@ public class DoorController : MonoBehaviour
     /// <summary>
     /// Call this when the player interacts with the door
     /// </summary>
-    /// <param name="itemInHand">The currently selected item from InventorySystem</param>
     public void ToggleDoor(ItemData itemInHand)
     {
-        if (lockedByPuzzle) return;  // cannot open manually if locked by puzzle
+        if (lockedByPuzzle) return; 
 
         if (Time.time - lastInteractTime < 0.5f) return;
         lastInteractTime = Time.time;
 
-        // --- KEY CHECK: compare by uniqueID ---
+        // --- KEY CHECK ---
         if (requiredKey != null)
         {
             if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
@@ -54,21 +70,18 @@ public class DoorController : MonoBehaviour
         if (doorAnimator == null) return;
 
         isOpen = !isOpen;
+        // Play animation from start (0f) for normal interaction
         doorAnimator.Play(isOpen ? openStateName : closeStateName, 0, 0f);
     }
 
     private void ShowLockMessage()
     {
         if (lockMessageText == null) return;
-
         lockMessageText.text = lockedMessage;
         lockMessageText.enabled = true;
         messageHideTime = Time.time + messageDuration;
     }
 
-    /// <summary>
-    /// Opens the door without needing a key
-    /// </summary>
     public void OpenDoor()
     {
         if (doorAnimator == null || isOpen) return;
@@ -76,13 +89,47 @@ public class DoorController : MonoBehaviour
         doorAnimator.Play(openStateName, 0, 0f);
     }
 
-    /// <summary>
-    /// Closes the door
-    /// </summary>
     public void CloseDoor()
     {
         if (doorAnimator == null || !isOpen) return;
         isOpen = false;
         doorAnimator.Play(closeStateName, 0, 0f);
+    }
+
+    // -------------------- ISaveable --------------------
+    public string GetUniqueID()
+    {
+        return persistentID != null ? persistentID.id : "";
+    }
+
+    public SaveObjectState CaptureState()
+    {
+        return new SaveObjectState
+        {
+            id = GetUniqueID(),
+            type = "Door",
+            doorOpen = isOpen,
+            doorLockedByPuzzle = lockedByPuzzle
+        };
+    }
+
+    public void RestoreState(SaveObjectState state)
+    {
+        if (state == null) return;
+        if (state.type != null && state.type != "Door") return;
+
+        lockedByPuzzle = state.doorLockedByPuzzle;
+        isOpen = state.doorOpen;
+
+        if (doorAnimator != null)
+        {
+            string animToPlay = isOpen ? openStateName : closeStateName;
+            
+            // FIX: Snap the animation to the END (1.0f) so it doesn't replay the motion on load.
+            doorAnimator.Play(animToPlay, 0, 1.0f); 
+            
+            // Force update so the visual snaps immediately
+            doorAnimator.Update(0f);
+        }
     }
 }

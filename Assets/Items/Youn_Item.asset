@@ -20,4 +20,4 @@ MonoBehaviour:
   spawnScale: {x: 0.5, y: 0.5, z: 0.5}
   isConsumable: 1
   storyImage: {fileID: 0}
-  uniqueID: ba5de0fc-0414-4396-9ff8-581730b2b908
+  uniqueID: ecd485dc-98eb-4d14-8ac7-fa590a39ecfc

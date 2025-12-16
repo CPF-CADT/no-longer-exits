@@ -13,10 +13,21 @@ public class ItemDatabase : ScriptableObject
         itemDict = new Dictionary<string, ItemData>();
         foreach (var item in allItems)
         {
-            if (item != null && !itemDict.ContainsKey(item.uniqueID))
+            if (item == null) continue;
+
+            if (string.IsNullOrEmpty(item.uniqueID))
             {
-                itemDict.Add(item.uniqueID, item);
+                Debug.LogWarning($"ItemDatabase: Item '{item.name}' has empty uniqueID and will be skipped. Assign a manual ID.");
+                continue;
             }
+
+            if (itemDict.ContainsKey(item.uniqueID))
+            {
+                Debug.LogWarning($"ItemDatabase: Duplicate uniqueID '{item.uniqueID}' found for item '{item.name}'. Only the first will be used.");
+                continue;
+            }
+
+            itemDict.Add(item.uniqueID, item);
         }
     }
 
