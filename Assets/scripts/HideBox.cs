@@ -3,18 +3,26 @@ using System.Collections.Generic;
 
 public class HideBox : MonoBehaviour
 {
+    [Header("Interaction")]
     public KeyCode interactKey = KeyCode.E;
+    public float interactionDistance = 2f;
+
+    [Header("Player")]
     public Transform player;
     public GameObject playerModel;
+
+    [Header("Cameras")]
+    [Tooltip("Main player camera (FPP / TPS)")]
+    public Camera playerCamera;
+
+    [Tooltip("Camera used while hiding inside the box")]
+    public Camera hideCamera;
 
     private ThirdPersonController controller;
     private bool isPlayerHidden = false;
     private Vector3 originalPlayerPosition;
 
-    [Header("Interaction Settings")]
-    public float interactionDistance = 2f;
-
-    // Static list to keep track of all hide boxes
+    // Track all hide boxes
     private static List<HideBox> allHideBoxes = new List<HideBox>();
 
     void OnEnable() => allHideBoxes.Add(this);
@@ -27,6 +35,10 @@ public class HideBox : MonoBehaviour
 
         if (playerModel == null && player != null)
             playerModel = player.GetComponentInChildren<SkinnedMeshRenderer>()?.gameObject;
+
+        // Ensure correct camera state at start
+        if (hideCamera != null)
+            hideCamera.enabled = false;
     }
 
     void Update()
@@ -47,35 +59,57 @@ public class HideBox : MonoBehaviour
 
         if (isPlayerHidden)
         {
-            originalPlayerPosition = player.position;
-            player.position = transform.position;
-
-            if (playerModel != null) playerModel.SetActive(false);
-            if (controller != null) controller.enabled = false;
-
-            foreach (Collider col in player.GetComponentsInChildren<Collider>())
-                col.enabled = false;
-
-            Debug.Log("Player is hidden in the box!");
+            EnterHide();
         }
         else
         {
-            player.position = originalPlayerPosition;
-
-            if (playerModel != null) playerModel.SetActive(true);
-            if (controller != null) controller.enabled = true;
-
-            foreach (Collider col in player.GetComponentsInChildren<Collider>())
-                col.enabled = true;
-
-            Debug.Log("Player exited the box!");
+            ExitHide();
         }
+    }
+
+    private void EnterHide()
+    {
+        originalPlayerPosition = player.position;
+        player.position = transform.position;
+
+        // Hide player visuals only (NOT the camera)
+        if (playerModel != null) playerModel.SetActive(false);
+
+        // Disable movement controller
+        if (controller != null) controller.enabled = false;
+
+        // Disable player colliders
+        foreach (Collider col in player.GetComponentsInChildren<Collider>())
+            col.enabled = false;
+
+        // Camera switch
+        if (playerCamera != null) playerCamera.enabled = false;
+        if (hideCamera != null) hideCamera.enabled = true;
+
+        Debug.Log("Player is hidden in the box!");
+    }
+
+    private void ExitHide()
+    {
+        player.position = originalPlayerPosition;
+
+        if (playerModel != null) playerModel.SetActive(true);
+        if (controller != null) controller.enabled = true;
+
+        foreach (Collider col in player.GetComponentsInChildren<Collider>())
+            col.enabled = true;
+
+        // Camera switch back
+        if (hideCamera != null) hideCamera.enabled = false;
+        if (playerCamera != null) playerCamera.enabled = true;
+
+        Debug.Log("Player exited the box!");
     }
 
     // Public getter
     public bool IsPlayerHidden => isPlayerHidden;
 
-    // Static method to check if player is hidden in any hide box
+    // Check if player is hidden anywhere
     public static bool IsPlayerHiddenAnywhere()
     {
         foreach (var box in allHideBoxes)

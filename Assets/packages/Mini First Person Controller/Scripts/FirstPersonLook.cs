@@ -1,21 +1,32 @@
 ﻿using UnityEngine;
 
+[RequireComponent(typeof(Camera))]
 public class FirstPersonLook : MonoBehaviour
 {
     [SerializeField] Transform character;
-    public float sensitivity = 2;
+
+    [Header("Mouse Settings")]
+    public float sensitivity = 2f;
     public float smoothing = 1.5f;
 
     Vector2 velocity;
     Vector2 frameVelocity;
-    
-    // THE SWITCH
-    public bool freezeCamera = false; 
 
-    // --- NEW SETTINGS ---
+    // CAMERA FREEZE SWITCH
+    [Header("Camera Control")]
+    public bool freezeCamera = false;
+
+    // LOOK LIMITS
     [Header("Look Limits")]
-    public float minVerticalAngle = -90f; // Looking UP (Keep -90 to look at sky)
-    public float maxVerticalAngle = 75f;  // Looking DOWN (Reduced from 90 to 75)
+    public float minVerticalAngle = -90f; // Look up
+    public float maxVerticalAngle = 75f;  // Look down
+
+    // 🔥 HIDE LAYER SETTINGS
+    [Header("Hide From This Camera")]
+    [Tooltip("Layers that should NOT be rendered by this FPP camera")]
+    public LayerMask hiddenLayers;
+
+    Camera cam;
 
     void Reset()
     {
@@ -25,24 +36,48 @@ public class FirstPersonLook : MonoBehaviour
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
+
+        cam = GetComponent<Camera>();
+
+        // 🔥 Apply layer hiding
+        ApplyHiddenLayers();
     }
 
     void Update()
     {
         if (freezeCamera) return;
 
-        // Normal Mouse Logic
-        Vector2 mouseDelta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
-        Vector2 rawFrameVelocity = Vector2.Scale(mouseDelta, Vector2.one * sensitivity);
-        frameVelocity = Vector2.Lerp(frameVelocity, rawFrameVelocity, 1 / smoothing);
+        // Mouse input
+        Vector2 mouseDelta = new Vector2(
+            Input.GetAxisRaw("Mouse X"),
+            Input.GetAxisRaw("Mouse Y")
+        );
+
+        Vector2 rawFrameVelocity = mouseDelta * sensitivity;
+        frameVelocity = Vector2.Lerp(frameVelocity, rawFrameVelocity, 1f / smoothing);
         velocity += frameVelocity;
 
-        // --- THE FIX ---
-        // Restrict Y so you can't look straight down at your legs
-        // Change 'maxVerticalAngle'i n Inspector to tweak (Try 70 or 75)
+        // Clamp vertical look
         velocity.y = Mathf.Clamp(velocity.y, minVerticalAngle, maxVerticalAngle);
 
+        // Apply rotations
         transform.localRotation = Quaternion.AngleAxis(-velocity.y, Vector3.right);
         character.localRotation = Quaternion.AngleAxis(velocity.x, Vector3.up);
+    }
+
+    // ==============================
+    // 🔥 CAMERA LAYER CONTROL
+    // ==============================
+    void ApplyHiddenLayers()
+    {
+        // Remove hidden layers from this camera's culling mask
+        cam.cullingMask &= ~hiddenLayers;
+    }
+
+    // OPTIONAL: Call this if you change layers at runtime
+    public void RefreshCullingMask()
+    {
+        cam.cullingMask = ~0; // Reset
+        ApplyHiddenLayers();
     }
 }
