@@ -35,7 +35,7 @@ public class ItemData : ScriptableObject
         SetDirty();
     }
 
-    private void SetDirty()
+    private new void SetDirty()
     {
 #if UNITY_EDITOR
         // This tells Unity "The data changed, please save this to the disk"

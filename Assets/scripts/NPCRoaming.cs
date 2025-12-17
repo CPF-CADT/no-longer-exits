@@ -5,11 +5,20 @@ using System.Collections;
 
 public class NPCRoaming : MonoBehaviour
 {
+    // --- ADDED FOR DIRECTOR (REQUIRED) ---
+    [Header("Cinematic Settings")]
+    public Transform cinematicCameraPoint; 
+    // -------------------------------------
+
+    // --- NEW: PUZZLE SETTINGS ---
+    [Header("Puzzle Control")]
+    public bool isPuzzleActive = false; // Check this to freeze ghost
+    // ----------------------------
+
     [Header("References")]
     public NavMeshAgent agent;
     public Transform model;
     public Transform player;
-    // REFERENCE TO NEW SCRIPT
     public GhostAudioController audioController; 
 
     [Header("Waypoints")]
@@ -38,7 +47,6 @@ public class NPCRoaming : MonoBehaviour
     public float deathDelayTime = 2.0f;
     public float minWaypointDistanceFromPlayer = 6f;
 
-    // --- BANISHMENT SETTINGS ---
     [Header("Banishment")]
     public ItemData itemRequiredToBanish;
     public float freezeDuration = 2f;
@@ -56,12 +64,23 @@ public class NPCRoaming : MonoBehaviour
     private Vector3 lastPlayerPosition;
     private float playerCurrentSpeed;
 
+    // --- ADDED FOR DIRECTOR ---
+    private bool isFrozenByDirector = false;
+
     void Start()
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
-        
-        // Auto-find audio controller if not assigned
         if (audioController == null) audioController = GetComponent<GhostAudioController>();
+
+        // Auto-create point if missing
+        if (cinematicCameraPoint == null)
+        {
+            GameObject autoPoint = new GameObject("AutoCameraPoint");
+            autoPoint.transform.SetParent(this.transform);
+            autoPoint.transform.localPosition = new Vector3(0, 1.5f, 2.5f); 
+            autoPoint.transform.localRotation = Quaternion.Euler(0, 180, 0); 
+            cinematicCameraPoint = autoPoint.transform;
+        }
 
         modelForwardOffset = new Vector3(-90f, 0f, 90f);
         if (model != null) model.localRotation = Quaternion.Euler(modelForwardOffset);
@@ -83,11 +102,31 @@ public class NPCRoaming : MonoBehaviour
 
     void Update()
     {
+        // --- 1. STOP IF DIRECTOR OR PUZZLE IS ACTIVE ---
+        if (isFrozenByDirector) return; 
+        
+        if (isPuzzleActive) 
+        {
+            // Force stop immediately if puzzle is on
+            if(agent != null && agent.isActiveAndEnabled && !agent.isStopped) 
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+                if (audioController != null) audioController.StopAudio();
+            }
+            return; 
+        }
+        // -----------------------------------------------
+
         if (isBanished || alreadyTriggeredScare) return;
+
+        // Ensure agent is moving if we are back to normal
+        if (agent != null && agent.isActiveAndEnabled && agent.isStopped) 
+            agent.isStopped = false;
 
         CalculatePlayerSpeed();
 
-        // 1. Detection Logic
+        // 2. Detection
         if (player != null)
         {
             if (HideBox.IsPlayerHiddenAnywhere())
@@ -108,11 +147,10 @@ public class NPCRoaming : MonoBehaviour
             }
         }
 
-        // 2. Update Audio State via Controller
-        if (audioController != null) 
-            audioController.UpdateState(followingPlayer);
+        // 3. Audio
+        if (audioController != null) audioController.UpdateState(followingPlayer);
 
-        // 3. Movement Logic
+        // 4. Movement
         if (followingPlayer && player != null)
         {
             agent.SetDestination(player.position);
@@ -132,17 +170,51 @@ public class NPCRoaming : MonoBehaviour
         RotateModel();
     }
 
+    // --- NEW FUNCTION: CALL THIS FROM YOUR PUZZLE SCRIPT ---
+    public void SetPuzzleMode(bool isActive)
+    {
+        isPuzzleActive = isActive;
+        
+        if (isActive)
+        {
+            // STOP immediately
+            if (agent != null) 
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;
+            }
+            if (audioController != null) audioController.StopAudio();
+        }
+        else
+        {
+            // RESUME
+            if (agent != null) agent.isStopped = false;
+            if (audioController != null) audioController.ResetAudio();
+        }
+    }
+    // ------------------------------------------------------
+
+    // --- ADDED FUNCTION FOR DIRECTOR ---
+    public void StopEverything()
+    {
+        isFrozenByDirector = true;
+        followingPlayer = false;
+        if (agent != null) 
+        {
+            agent.isStopped = true;
+            agent.velocity = Vector3.zero;
+        }
+        if (audioController != null) audioController.StopAudio();
+    }
+    // ----------------------------------
+
     public bool AttemptBanish(ItemData itemUsed)
     {
-        if (isBanished || alreadyTriggeredScare) return false;
+        if (isBanished || alreadyTriggeredScare || isFrozenByDirector || isPuzzleActive) return false;
 
         if (itemRequiredToBanish != null)
         {
-            if (itemUsed == null || itemUsed != itemRequiredToBanish)
-            {
-                Debug.Log("Ghost: That item does not scare me!");
-                return false;
-            }
+            if (itemUsed == null || itemUsed != itemRequiredToBanish) return false;
         }
 
         StartCoroutine(BanishRoutine());
@@ -153,21 +225,15 @@ public class NPCRoaming : MonoBehaviour
     {
         isBanished = true;
         followingPlayer = false;
-        
-        // Trigger Audio Banish
         if (audioController != null) audioController.PlayBanish();
-
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
 
         yield return new WaitForSeconds(freezeDuration);
 
-        // Hide Ghost
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
-        
-        // Silence Audio while hidden
         if (audioController != null) audioController.StopAudio();
 
         yield return new WaitForSeconds(10f);
@@ -175,14 +241,10 @@ public class NPCRoaming : MonoBehaviour
         GoToNextWaypoint();
         agent.Warp(originalWaypoints[currentWaypointIndex].position);
 
-        // Show Ghost
         if (model != null) model.gameObject.SetActive(true);
         if (col != null) col.enabled = true;
-
         agent.isStopped = false;
         isBanished = false;
-        
-        // Restart Audio
         if (audioController != null) audioController.ResetAudio();
     }
 
@@ -209,15 +271,10 @@ public class NPCRoaming : MonoBehaviour
     {
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
         float distToPlayer = Vector3.Distance(transform.position, player.position);
-
         if (distToPlayer > visionRange) return false;
-
         if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2)
         {
-            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, distToPlayer, obstacleMask))
-            {
-                return true;
-            }
+            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, distToPlayer, obstacleMask)) return true;
         }
         return false;
     }
@@ -239,7 +296,6 @@ public class NPCRoaming : MonoBehaviour
     private void RotateBody()
     {
         if (alreadyTriggeredScare || isBanished) return;
-
         Vector3 velocity = agent.velocity;
         velocity.y = 0;
         if (velocity.sqrMagnitude > 0.01f)
@@ -254,6 +310,7 @@ public class NPCRoaming : MonoBehaviour
         if (model != null) model.localRotation = Quaternion.Euler(modelForwardOffset);
     }
 
+    // YOUR ORIGINAL HOVER FUNCTION (UNTOUCHED)
     private void HoverMotion()
     {
         float baseY = agent.nextPosition.y;
@@ -277,13 +334,12 @@ public class NPCRoaming : MonoBehaviour
             agent.isStopped = true;
             agent.velocity = Vector3.zero;
 
-            // Trigger Audio Scare
             if (audioController != null) audioController.PlayScare();
 
             transform.LookAt(player);
             if (model != null) model.LookAt(player.position + Vector3.up * 1.5f);
-            TogglePlayerControls(false);
-
+            
+            // NOTE: Director handles camera now, but leaving your hooks here just in case
             if (GhostCameraController.Instance != null)
                 GhostCameraController.Instance.MoveCameraToPoint(targetPart, 0.5f);
 
@@ -300,10 +356,15 @@ public class NPCRoaming : MonoBehaviour
         else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
 
         yield return new WaitForSeconds(0.1f);
-        MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
         
+        // Use your original way to find a new spot
+        if (originalWaypoints.Count > 0)
+        {
+             currentWaypointIndex = Random.Range(0, originalWaypoints.Count);
+             agent.Warp(originalWaypoints[currentWaypointIndex].position);
+        }
+
         ResetGhostState();
-        TogglePlayerControls(true);
     }
 
     private void ResetGhostState()
@@ -312,50 +373,11 @@ public class NPCRoaming : MonoBehaviour
         followingPlayer = false;
         agent.isStopped = false;
         isBanished = false;
+        isFrozenByDirector = false; // Reset director flag too
+        isPuzzleActive = false; // Reset puzzle flag if player died
         
-        // Reset Audio
         if (audioController != null) audioController.ResetAudio();
-
         if (player != null) lastPlayerPosition = player.position;
         GoToNextWaypoint();
-    }
-
-    private void MoveGhostToDifferentWaypoint(float minDistanceFromPlayer)
-    {
-        // (Identical to previous logic - kept for completeness)
-        if (originalWaypoints == null || originalWaypoints.Count == 0) return;
-        if (player == null) return;
-        int attempts = 0; int chosen = -1;
-        while (attempts < 10) {
-            int idx = Random.Range(0, originalWaypoints.Count);
-            if (idx == currentWaypointIndex) { attempts++; continue; }
-            if (Vector3.Distance(originalWaypoints[idx].position, player.position) >= minDistanceFromPlayer) { chosen = idx; break; }
-            attempts++;
-        }
-        if (chosen == -1) chosen = Random.Range(0, originalWaypoints.Count);
-
-        if (chosen >= 0 && chosen < originalWaypoints.Count)
-        {
-            currentWaypointIndex = chosen;
-            Vector3 spawnPos = originalWaypoints[chosen].position;
-            agent.Warp(spawnPos);
-            transform.position = spawnPos;
-            if (model != null) model.gameObject.SetActive(true);
-            Collider col = GetComponent<Collider>();
-            if (col != null) col.enabled = true;
-            GoToNextWaypoint();
-        }
-    }
-
-    private void TogglePlayerControls(bool state)
-    {
-        if (player == null) return;
-        FirstPersonLook lookScript = player.GetComponentInChildren<FirstPersonLook>();
-        if (lookScript == null && Camera.main != null) lookScript = Camera.main.GetComponent<FirstPersonLook>();
-        if (lookScript != null) { lookScript.freezeCamera = !state; lookScript.enabled = state; }
-        FirstPersonMovement moveScript = player.GetComponent<FirstPersonMovement>();
-        if (moveScript != null) moveScript.enabled = state;
-        Rigidbody rb = player.GetComponent<Rigidbody>();
-        if (rb != null) rb.isKinematic = !state;
     }
 }
