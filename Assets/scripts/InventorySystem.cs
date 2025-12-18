@@ -35,6 +35,8 @@ public class InventorySystem : MonoBehaviour
 
     [Header("Item Database")]
     public ItemDatabase itemDatabase;
+    [Header("Item Scroll Reference")]
+    public ItemData scroll;
 
     private void Start()
     {
@@ -79,7 +81,31 @@ public class InventorySystem : MonoBehaviour
     {
         if (item == null) return;
 
-        // Prevent duplicates for non-stackable items
+        // If it's a scroll, check if it already exists
+        if (item.uniqueID == scroll.uniqueID)
+        {
+            bool scrollExists = false;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] != null && slots[i].uniqueID == item.uniqueID)
+                {
+                    scrollExists = true;
+                    break;
+                }
+            }
+
+            if (scrollExists)
+            {
+                // Scroll already in inventory -> just enqueue story
+                if (item.storyImage != null)
+                    ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, autoOpenIfFirst: false);
+
+                Debug.Log("Scroll already collected, story added to ScrollManager.");
+                return; // Don't add to inventory again
+            }
+        }
+
+        // Prevent duplicates for other non-stackable items
         for (int i = 0; i < slots.Length; i++)
         {
             if (slots[i] == item)
@@ -114,6 +140,7 @@ public class InventorySystem : MonoBehaviour
 
         Debug.Log("Inventory Full!");
     }
+
 
     public void SelectSlot(int index)
     {
@@ -198,10 +225,22 @@ public class InventorySystem : MonoBehaviour
         ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
         if (pickup != null && pickup.TryClaim())
         {
-            AddItem(pickup.itemData);
+            ItemData item = pickup.itemData;
+
+            // Add item to inventory (prevents duplicates using uniqueID)
+            AddItem(item);
+
+            // Add story to ScrollManager but DO NOT auto-open
+            if (item != null && item.storyImage != null)
+            {
+                ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, autoOpenIfFirst: false);
+            }
+
             pickup.Pickup();
         }
     }
+
+
 
     private void CheckHandForSpecialAbility()
     {
@@ -209,7 +248,13 @@ public class InventorySystem : MonoBehaviour
 
         if (currentHandModel.TryGetComponent<ItemReadable>(out var readable) && readable.storyImage != null)
         {
-            ScrollManager.Instance.OpenScroll(readable.storyImage);
+            // Ensure it's in the ScrollManager; avoid duplicate adds
+            ScrollManager.Instance?.EnqueueStoryIfNotPresent(readable.storyImage, autoOpenIfFirst: false);
+
+            // Open the scroll viewer (shows current selection or first)
+            ScrollManager.Instance?.OpenIfAny();
+
+            // Keep previous behavior: consume after reading if consumable
             ConsumeCurrentItem();
         }
     }

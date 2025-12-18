@@ -8328,6 +8328,7 @@ MonoBehaviour:
   readKey: 102
   inventoryKey: 9
   itemDatabase: {fileID: 0}
+  scroll: {fileID: 11400000, guid: a730bcbd0d520234386308c0f9e45047, type: 2}
 --- !u!95 &675254079
 Animator:
   serializedVersion: 5
@@ -28434,7 +28435,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   uiPanel: {fileID: 2052607789}
   displayImage: {fileID: 1392721007}
-  pageIndicator: {fileID: 0}
+  prevButton: {fileID: 0}
+  nextButton: {fileID: 0}
+  nextKey: 46
+  prevKey: 44
+  itemDatabase: {fileID: 0}
 --- !u!114 &2052607791
 MonoBehaviour:
   m_ObjectHideFlags: 0
