@@ -30,8 +30,11 @@ public class CinematicDirector : MonoBehaviour
     public float delayBeforeDestruction = 1.5f;
     public float timeBetweenGhosts = 0.5f;
 
+    [Header("Return To Player")]
+    public float returnDuration = 1.0f;
+
     [Header("Destruction")]
-    public GameObject explosionVFX; // Triggers when camera DETECTS ghost now
+    public GameObject explosionVFX;
 
     private bool isCinematicActive = false;
     private NavMeshAgent cameraAgent;
@@ -46,7 +49,10 @@ public class CinematicDirector : MonoBehaviour
                 cameraAgent.updatePosition = false;
                 cameraAgent.updateRotation = false;
                 cameraAgent.updateUpAxis = true;
+                cameraAgent.enabled = false;
             }
+
+            cinematicCamera.enabled = false;
             cinematicCamera.gameObject.SetActive(false);
         }
     }
@@ -60,31 +66,28 @@ public class CinematicDirector : MonoBehaviour
 
     private IEnumerator DynamicMultiDeathSequence(List<NPCRoaming> ghosts)
     {
-        Debug.Log($"[Director] Sequence Started.");
+        Debug.Log("[Director] Sequence Started.");
 
         TogglePlayerControls(false);
 
-        if (cinematicCamera != null && playerCamera != null)
-        {
-            cinematicCamera.transform.position = playerCamera.position;
-            cinematicCamera.transform.rotation = playerCamera.rotation;
-            cinematicCamera.enabled = true;
-            cinematicCamera.gameObject.SetActive(true);
+        // Sync cinematic camera with player camera
+        cinematicCamera.transform.position = playerCamera.position;
+        cinematicCamera.transform.rotation = playerCamera.rotation;
+        cinematicCamera.gameObject.SetActive(true);
+        cinematicCamera.enabled = true;
 
-            if (cameraAgent != null)
-            {
-                cameraAgent.enabled = true;
-                cameraAgent.Warp(playerCamera.position);
-                cameraAgent.speed = movementSpeed;
-                cameraAgent.isStopped = false;
-            }
+        if (cameraAgent != null)
+        {
+            cameraAgent.enabled = true;
+            cameraAgent.Warp(playerCamera.position);
+            cameraAgent.speed = movementSpeed;
+            cameraAgent.isStopped = false;
         }
 
         foreach (NPCRoaming currentGhost in ghosts)
         {
             if (currentGhost == null) continue;
 
-            // --- PHASE 1: THE HUNT ---
             bool lockedOn = false;
             cinematicCamera.transform.SetParent(null);
 
@@ -94,54 +97,50 @@ public class CinematicDirector : MonoBehaviour
                 cameraAgent.isStopped = false;
             }
 
+            // ---------- PHASE 1: HUNT ----------
             while (!lockedOn)
             {
                 if (currentGhost == null) break;
 
-                // 1. Target
                 Vector3 targetPos = currentGhost.transform.position;
                 if (currentGhost.cinematicCameraPoint != null)
                     targetPos = currentGhost.cinematicCameraPoint.position;
 
-                if (cameraAgent != null) cameraAgent.SetDestination(targetPos);
+                if (cameraAgent != null)
+                    cameraAgent.SetDestination(targetPos);
 
-                // 2. Move
                 if (cameraAgent != null)
                 {
                     Vector3 floorPos = cameraAgent.nextPosition;
-                    float hoverOffset = Mathf.Sin(Time.time * floatFrequency) * floatAmplitude;
-                    Vector3 finalPos = floorPos;
-                    finalPos.y += floatBaseHeight + hoverOffset;
-                    cinematicCamera.transform.position = finalPos;
+                    float hover = Mathf.Sin(Time.time * floatFrequency) * floatAmplitude;
+                    cinematicCamera.transform.position =
+                        new Vector3(floorPos.x, floorPos.y + floatBaseHeight + hover, floorPos.z);
                 }
 
-                // 3. Rotation
                 Vector3 ghostHead = currentGhost.transform.position + Vector3.up * lookAtHeightOffset;
-                float distToGhost = Vector3.Distance(cinematicCamera.transform.position, targetPos);
-                Quaternion desiredRotation;
+                float dist = Vector3.Distance(cinematicCamera.transform.position, targetPos);
 
-                if (distToGhost > 8.0f && cameraAgent.velocity.sqrMagnitude > 0.1f)
-                    desiredRotation = Quaternion.LookRotation(cameraAgent.velocity.normalized);
+                Quaternion lookRot;
+                if (dist > 8f && cameraAgent.velocity.sqrMagnitude > 0.1f)
+                    lookRot = Quaternion.LookRotation(cameraAgent.velocity.normalized);
                 else
-                {
-                    Vector3 dirToGhost = (ghostHead - cinematicCamera.transform.position).normalized;
-                    desiredRotation = Quaternion.LookRotation(dirToGhost);
-                }
+                    lookRot = Quaternion.LookRotation((ghostHead - cinematicCamera.transform.position).normalized);
 
                 cinematicCamera.transform.rotation = Quaternion.Slerp(
-                    cinematicCamera.transform.rotation, desiredRotation, rotationSpeed * Time.deltaTime
+                    cinematicCamera.transform.rotation,
+                    lookRot,
+                    rotationSpeed * Time.deltaTime
                 );
 
-                // 4. Check Lock
-                if (distToGhost <= detectDistance)
+                if (dist <= detectDistance)
                 {
-                    RaycastHit hit;
-                    Vector3 dirCheck = (ghostHead - cinematicCamera.transform.position).normalized;
-                    if (!Physics.Raycast(cinematicCamera.transform.position, dirCheck, out hit, distToGhost, obstructionMask))
+                    if (!Physics.Raycast(cinematicCamera.transform.position,
+                        (ghostHead - cinematicCamera.transform.position).normalized,
+                        dist,
+                        obstructionMask))
                     {
                         lockedOn = true;
 
-                        // --- PLAY VFX HERE (UPON DETECTION) ---
                         if (explosionVFX != null)
                         {
                             GameObject vfx = Instantiate(
@@ -149,42 +148,43 @@ public class CinematicDirector : MonoBehaviour
                                 currentGhost.transform.position + Vector3.up,
                                 Quaternion.identity
                             );
-
                             vfx.transform.localScale = Vector3.one * 0.25f;
                         }
-
                     }
                 }
+
                 yield return null;
             }
 
-            // --- PHASE 2: STOP & ATTACH ---
-            if (currentGhost != null) currentGhost.StopEverything();
+            // ---------- PHASE 2: ATTACH ----------
+            if (currentGhost != null)
+                currentGhost.StopEverything();
 
-            if (cameraAgent != null) cameraAgent.enabled = false;
+            if (cameraAgent != null)
+                cameraAgent.enabled = false;
 
             if (currentGhost != null && currentGhost.cinematicCameraPoint != null)
             {
                 cinematicCamera.transform.SetParent(currentGhost.cinematicCameraPoint);
 
-                float snapTimer = 0f;
+                float snap = 0f;
                 Vector3 startPos = cinematicCamera.transform.localPosition;
                 Quaternion startRot = cinematicCamera.transform.localRotation;
 
-                while (snapTimer < 1.0f)
+                while (snap < 1f)
                 {
-                    snapTimer += Time.deltaTime * 2.0f; // Fast snap
-                    cinematicCamera.transform.localPosition = Vector3.Lerp(startPos, Vector3.zero, snapTimer);
-                    cinematicCamera.transform.localRotation = Quaternion.Slerp(startRot, Quaternion.identity, snapTimer);
+                    snap += Time.deltaTime * 2f;
+                    cinematicCamera.transform.localPosition =
+                        Vector3.Lerp(startPos, Vector3.zero, snap);
+                    cinematicCamera.transform.localRotation =
+                        Quaternion.Slerp(startRot, Quaternion.identity, snap);
                     yield return null;
                 }
             }
 
-            // --- PHASE 3: EXECUTE ---
-            // Wait for the duration (VFX played at start of detection, so it's visible now)
+            // ---------- PHASE 3: DESTROY ----------
             yield return new WaitForSeconds(delayBeforeDestruction);
 
-            // Just hide the ghost (VFX already played)
             if (currentGhost != null)
                 currentGhost.gameObject.SetActive(false);
 
@@ -193,25 +193,66 @@ public class CinematicDirector : MonoBehaviour
         }
 
         Debug.Log("[Director] All ghosts destroyed.");
-        yield return new WaitForSeconds(2f);
+
+        yield return new WaitForSeconds(0.5f);
+        yield return StartCoroutine(ReturnToPlayerCamera());
+    }
+
+    private IEnumerator ReturnToPlayerCamera()
+    {
+        Camera playerCam = playerCamera.GetComponent<Camera>();
+        if (playerCam == null)
+            playerCam = playerCamera.GetComponentInChildren<Camera>();
+
+        Vector3 startPos = cinematicCamera.transform.position;
+        Quaternion startRot = cinematicCamera.transform.rotation;
+
+        Vector3 targetPos = playerCamera.position;
+        Quaternion targetRot = playerCamera.rotation;
+
+        float t = 0f;
+
+        while (t < 1f)
+        {
+            t += Time.deltaTime / returnDuration;
+            cinematicCamera.transform.position = Vector3.Lerp(startPos, targetPos, t);
+            cinematicCamera.transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
+            yield return null;
+        }
+
+        cinematicCamera.transform.position = targetPos;
+        cinematicCamera.transform.rotation = targetRot;
+
+        cinematicCamera.enabled = false;
+        cinematicCamera.gameObject.SetActive(false);
+
+        if (playerCam != null)
+            playerCam.enabled = true;
+
+        TogglePlayerControls(true);
     }
 
     private void TogglePlayerControls(bool state)
     {
-        if (playerCamera == null) return;
         Camera playerCam = playerCamera.GetComponent<Camera>();
-        if (playerCam == null) playerCam = playerCamera.GetComponentInChildren<Camera>();
-        if (playerCam != null) playerCam.enabled = state;
+        if (playerCam == null)
+            playerCam = playerCamera.GetComponentInChildren<Camera>();
 
-        AudioListener list = playerCamera.GetComponent<AudioListener>();
-        if (list == null) list = playerCamera.GetComponentInChildren<AudioListener>();
-        if (list != null) list.enabled = state;
+        if (playerCam != null)
+            playerCam.enabled = state;
 
-        Transform root = playerCamera.root;
-        MonoBehaviour[] scripts = root.GetComponentsInChildren<MonoBehaviour>();
+        AudioListener al = playerCamera.GetComponent<AudioListener>();
+        if (al == null)
+            al = playerCamera.GetComponentInChildren<AudioListener>();
+
+        if (al != null)
+            al.enabled = state;
+
+        MonoBehaviour[] scripts = playerCamera.root.GetComponentsInChildren<MonoBehaviour>();
         foreach (var s in scripts)
         {
             if (s == this) continue;
+
             string n = s.GetType().Name;
             if (n.Contains("Move") || n.Contains("Look") || n.Contains("Controller") || n.Contains("Input"))
                 s.enabled = state;
