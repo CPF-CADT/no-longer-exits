@@ -12,7 +12,6 @@ public class PuzzleManager : MonoBehaviour, ISaveable
 
     [Header("References")]
     public Animator statueAnimator;
-    public CinematicDirector cinematicDirector;
 
     // ================= PORTAL SETTINGS =================
     [Header("Portal")]
@@ -33,10 +32,6 @@ public class PuzzleManager : MonoBehaviour, ISaveable
 
     private GameObject spawnedPortalVisual;
 
-    // ================= GHOSTS =================
-    [Header("Ghosts to Destroy")]
-    public List<NPCRoaming> ghostsToDestroy;
-
     // ================= SAVE =================
     [Header("Persistence")]
     public PersistentID persistentID;
@@ -51,9 +46,6 @@ public class PuzzleManager : MonoBehaviour, ISaveable
         if (persistentID == null)
             Debug.LogError($"[PuzzleManager] '{name}' has no PersistentID!");
 
-        // Ensure portal is OFF at start
-        if (portalDoor != null)
-            portalDoor.SetActive(false);
     }
 
     private void Start()
@@ -97,28 +89,12 @@ public class PuzzleManager : MonoBehaviour, ISaveable
 
         Debug.Log("[PuzzleManager] PUZZLE SOLVED!");
 
-        // 1. Stop ghosts
-        if (ghostsToDestroy != null)
-        {
-            foreach (var ghost in ghostsToDestroy)
-            {
-                if (ghost != null)
-                    ghost.StopEverything();
-            }
-        }
-
         // 2. Enable portal
         EnablePortal();
 
         // 3. Statue animation
         if (statueAnimator != null)
             statueAnimator.SetTrigger("Awaken");
-
-        // 4. Cinematic
-        if (cinematicDirector != null && ghostsToDestroy != null && ghostsToDestroy.Count > 0)
-        {
-            cinematicDirector.StartEndingSequence(ghostsToDestroy);
-        }
     }
 
     // ================= PORTAL LOGIC =================
@@ -211,15 +187,6 @@ public class PuzzleManager : MonoBehaviour, ISaveable
 
             if (statueAnimator != null)
                 statueAnimator.SetTrigger("Awaken");
-
-            if (ghostsToDestroy != null)
-            {
-                foreach (var ghost in ghostsToDestroy)
-                {
-                    if (ghost != null)
-                        ghost.gameObject.SetActive(false);
-                }
-            }
         }
     }
 }

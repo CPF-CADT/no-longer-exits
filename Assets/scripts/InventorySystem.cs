@@ -82,7 +82,7 @@ public class InventorySystem : MonoBehaviour
         if (item == null) return;
 
         // If it's a scroll, check if it already exists
-        if (item.uniqueID == scroll.uniqueID)
+        if (scroll != null && item.uniqueID == scroll.uniqueID)
         {
             bool scrollExists = false;
             for (int i = 0; i < slots.Length; i++)
