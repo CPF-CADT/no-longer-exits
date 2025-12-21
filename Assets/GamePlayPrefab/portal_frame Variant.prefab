@@ -1,0 +1,106 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &3581373173581040772
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 10.585738
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.0001001358
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -31.213806
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1261755645671882927, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1452815012320398052, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_Name
+      value: portal_frame Variant
+      objectReference: {fileID: 0}
+    - target: {fileID: 7915852184750742015, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7915852184750742015, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 145.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914799705966020738, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_Size.x
+      value: 1.9907905
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914799705966020738, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_Size.z
+      value: 2.67
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914799705966020738, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_Center.x
+      value: -0.022131603
+      objectReference: {fileID: 0}
+    - target: {fileID: 8914799705966020738, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      propertyPath: m_Center.y
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2449184725526130915, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6596950897014588847}
+  m_SourcePrefab: {fileID: 100100000, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+--- !u!1 &1175113382540704871 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2449184725526130915, guid: fb9d8e3607e9c07429721b7e6a33dbce, type: 3}
+  m_PrefabInstance: {fileID: 3581373173581040772}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6596950897014588847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1175113382540704871}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cfa922b09b51104ba298c01a41b2c30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stoneItem: {fileID: 11400000, guid: 71ad208df4ac7b2469fb6061991f2522, type: 2}
+  puzzleCanvas: {fileID: 0}
+  requiredStones: 4

@@ -36,17 +36,21 @@ public class WeaponSocket : MonoBehaviour, ISaveable
     {
         if (inventory == null) return;
 
+        var weaponInHand = inventory.GetCurrentItem() as VishnuWeaponItemData;
+        if (weaponInHand == null) return;
+
         if (currentWeapon != null)
         {
+            // Take the current weapon back into inventory
             inventory.AddItem(TakeWeapon());
         }
         else
         {
-            var weaponInHand = inventory.GetCurrentItem() as VishnuWeaponItemData;
-            if (weaponInHand != null)
+            // Place weapon if socket is empty
+            bool placed = TryPlaceWeapon(weaponInHand) != null; // returns previousWeapon
+            if (placed)
             {
-                TryPlaceWeapon(weaponInHand);
-                inventory.ConsumeCurrentItem();
+                inventory.ConsumeCurrentItem(); // remove only if successfully placed
             }
         }
     }
@@ -91,30 +95,26 @@ public class WeaponSocket : MonoBehaviour, ISaveable
     // --- HELPER FUNCTION FOR SPAWNING ---
     private void SpawnModel(VishnuWeaponItemData weapon)
     {
+        if (weapon == null || weapon.model == null) return;
+
         currentWeapon = weapon;
         currentWeaponModel = Instantiate(weapon.model, transform);
-        
-        // --- UPDATED FIX ---
-        // We now IGNORE itemData.spawnRotation and itemData.spawnScale 
-        // because those are for the Inventory Camera view only.
-        
-        // 1. Position: Center of the socket
+
+        // Position: center socket (ignore inventory spawn position)
         currentWeaponModel.transform.localPosition = Vector3.zero;
 
-        // 2. Rotation: Align perfectly with the socket (Identity)
-        currentWeaponModel.transform.localRotation = Quaternion.identity;
-
-        // 3. Scale: Use the Prefab's original scale
+        // Rotation & Scale: use weapon prefab values
+        currentWeaponModel.transform.localRotation = weapon.model.transform.localRotation;
         currentWeaponModel.transform.localScale = weapon.model.transform.localScale;
-        // -------------------
 
-        // Cleanup components so it doesn't act as a pickup
+        // Remove pickup/collider/rigidbody so it behaves as a static display
         if (currentWeaponModel.TryGetComponent<ItemPickup>(out var pickup)) Destroy(pickup);
         if (currentWeaponModel.TryGetComponent<Collider>(out var col)) Destroy(col);
         if (currentWeaponModel.TryGetComponent<Rigidbody>(out var rb)) Destroy(rb);
-        
-        currentWeaponModel.SetActive(true); 
+
+        currentWeaponModel.SetActive(true);
     }
+
 
     // -------------------- ISaveable --------------------
     public string GetUniqueID()
@@ -187,14 +187,12 @@ public class WeaponSocket : MonoBehaviour, ISaveable
             if (ItemRegistry.Instance != null)
             {
                 item = ItemRegistry.Instance.FindByUniqueID(uniqueId);
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by ItemRegistry ID '{uniqueId}' => {item.name}");
             }
 
             // Try InventorySystem's ItemDatabase by ID
             if (item == null && InventorySystem.Instance != null && InventorySystem.Instance.itemDatabase != null)
             {
                 item = InventorySystem.Instance.itemDatabase.GetItemByID(uniqueId);
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by ItemDatabase ID '{uniqueId}' => {item.name}");
             }
 
             // Try Resources-backed ItemRegistryData (ScriptableObject)
@@ -202,7 +200,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
             {
                 ItemRegistryData reg = Resources.Load<ItemRegistryData>("ItemRegistry");
                 if (reg == null) reg = Resources.Load<ItemRegistryData>("Items/ItemRegistry");
-                if (reg == null) reg = Resources.Load<ItemRegistryData>("items/ItemRegistry");
                 if (reg != null && reg.items != null)
                 {
                     for (int r = 0; r < reg.items.Length; r++)
@@ -210,7 +207,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                         var it = reg.items[r];
                         if (it != null && it.uniqueID == uniqueId) { item = it; break; }
                     }
-                    if (item != null) Debug.Log($"[WeaponSocket] Resolved by Resources ItemRegistryData ID '{uniqueId}' => {item.name}");
                 }
             }
 
@@ -223,18 +219,11 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                     foreach (var it in poolsA) { if (it != null && it.uniqueID == uniqueId) { item = it; break; } }
                 }
 
-                ItemData[] poolsB = (item == null) ? Resources.LoadAll<ItemData>("items") : null;
-                if (item == null && poolsB != null)
-                {
-                    foreach (var it in poolsB) { if (it != null && it.uniqueID == uniqueId) { item = it; break; } }
-                }
-
                 if (item == null)
                 {
                     ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
                     foreach (var it in poolsAny) { if (it != null && it.uniqueID == uniqueId) { item = it; break; } }
                 }
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by Resources scan ID '{uniqueId}' => {item.name}");
             }
         }
 
@@ -244,7 +233,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
             if (ItemRegistry.Instance != null)
             {
                 item = ItemRegistry.Instance.FindByName(name);
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by ItemRegistry Name '{name}' => {item.name}");
             }
 
             if (item == null && InventorySystem.Instance != null && InventorySystem.Instance.itemDatabase != null)
@@ -263,7 +251,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                         }
                     }
                 }
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by ItemDatabase Name '{name}' => {item.name}");
             }
 
             // Try name via Resources registry
@@ -271,7 +258,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
             {
                 ItemRegistryData reg = Resources.Load<ItemRegistryData>("ItemRegistry");
                 if (reg == null) reg = Resources.Load<ItemRegistryData>("Items/ItemRegistry");
-                if (reg == null) reg = Resources.Load<ItemRegistryData>("items/ItemRegistry");
                 if (reg != null && reg.items != null)
                 {
                     for (int r = 0; r < reg.items.Length; r++)
@@ -279,20 +265,7 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                         var it = reg.items[r];
                         if (it != null && (it.name == name || it.itemName == name)) { item = it; break; }
                     }
-                    if (item != null) Debug.Log($"[WeaponSocket] Resolved by Resources ItemRegistryData Name '{name}' => {item.name}");
                 }
-            }
-
-            // Scan Resources by name as a final fallback
-            if (item == null)
-            {
-                ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
-                foreach (var it in poolsAny)
-                {
-                    if (it == null) continue;
-                    if (it.name == name || it.itemName == name) { item = it; break; }
-                }
-                if (item != null) Debug.Log($"[WeaponSocket] Resolved by Resources scan Name '{name}' => {item.name}");
             }
         }
 
@@ -332,7 +305,6 @@ public class WeaponSocket : MonoBehaviour, ISaveable
             }
         }
 
-        // Lastly, use explicit fallback field if assigned
         if (fallbackWeapon != null && fallbackWeapon.weaponType == type)
             return fallbackWeapon;
 

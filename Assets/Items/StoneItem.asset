@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1ed6c619c528b544baf26864333a24d, type: 3}
+  m_Name: StoneItem
+  m_EditorClassIdentifier: 
+  itemName: stone
+  icon: {fileID: 21300000, guid: 4ebee4f566470634d8f4711e2c1f9d4b, type: 3}
+  model: {fileID: -6689036041284674117, guid: a9e4e8eed2f9ab64b821f2743ad0c6c4, type: 3}
+  spawnPosition: {x: 0, y: 0, z: 0}
+  spawnRotation: {x: 0, y: 0, z: 0}
+  spawnScale: {x: 0, y: 0, z: 0}
+  isConsumable: 1
+  storyImage: {fileID: 0}
+  uniqueID: 309495cc-f41e-4ad8-9047-ce9ffc37e876

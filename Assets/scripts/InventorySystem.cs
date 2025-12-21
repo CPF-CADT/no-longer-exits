@@ -19,6 +19,8 @@ public class InventorySystem : MonoBehaviour
     public int hotbarSize = 6;
     public Color selectedColor = Color.green;
     public Color normalColor = Color.white;
+    [Header("Duplication Settings")]
+    public List<ItemData> duplicableItems; // List of items allowed to have duplicates
 
     // DATA
     private ItemData[] slots;
@@ -96,22 +98,24 @@ public class InventorySystem : MonoBehaviour
 
             if (scrollExists)
             {
-                // Scroll already in inventory -> just enqueue story
                 if (item.storyImage != null)
                     ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, autoOpenIfFirst: false);
 
                 Debug.Log("Scroll already collected, story added to ScrollManager.");
-                return; // Don't add to inventory again
+                return;
             }
         }
 
-        // Prevent duplicates for other non-stackable items
-        for (int i = 0; i < slots.Length; i++)
+        // Prevent duplicates for items that are NOT in the duplicable list
+        if (!duplicableItems.Contains(item))
         {
-            if (slots[i] == item)
+            for (int i = 0; i < slots.Length; i++)
             {
-                Debug.Log("Item already in inventory!");
-                return;
+                if (slots[i] == item)
+                {
+                    Debug.Log("Item already in inventory!");
+                    return;
+                }
             }
         }
 
@@ -174,16 +178,36 @@ public class InventorySystem : MonoBehaviour
             readable.storyImage = slots[selectedSlot].storyImage;
     }
 
+    // --- NEW FUNCTION: Removes item regardless of isConsumable ---
+    public ItemData RemoveCurrentItem()
+    {
+        if (slots[selectedSlot] == null) return null;
+
+        // Keep a reference to the item before removing
+        ItemData removedItem = slots[selectedSlot];
+
+        // Destroy the hand model if it exists
+        if (currentHandModel != null)
+            Destroy(currentHandModel);
+
+        // Clear the slot
+        slots[selectedSlot] = null;
+
+        // Update UI
+        UpdateUI();
+
+        // Return the removed item
+        return removedItem;
+    }
+
+
     public void ConsumeCurrentItem()
     {
         if (slots[selectedSlot] == null) return;
 
         if (slots[selectedSlot].isConsumable)
         {
-            Destroy(currentHandModel);
-            slots[selectedSlot] = null;
-            UpdateUI();
-            SpawnCurrentSlotModel();
+            RemoveCurrentItem();
         }
     }
 
@@ -226,11 +250,8 @@ public class InventorySystem : MonoBehaviour
         if (pickup != null && pickup.TryClaim())
         {
             ItemData item = pickup.itemData;
-
-            // Add item to inventory (prevents duplicates using uniqueID)
             AddItem(item);
 
-            // Add story to ScrollManager but DO NOT auto-open
             if (item != null && item.storyImage != null)
             {
                 ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, autoOpenIfFirst: false);
@@ -240,31 +261,39 @@ public class InventorySystem : MonoBehaviour
         }
     }
 
-
-
     private void CheckHandForSpecialAbility()
     {
         if (currentHandModel == null) return;
 
-        if (currentHandModel.TryGetComponent<ItemReadable>(out var readable) && readable.storyImage != null)
+        if (currentHandModel.TryGetComponent<ItemReadable>(out var readable))
         {
-            // Ensure it's in the ScrollManager; avoid duplicate adds
-            ScrollManager.Instance?.EnqueueStoryIfNotPresent(readable.storyImage, autoOpenIfFirst: false);
+            if (readable.storyImage == null)
+            {
+                Debug.LogWarning("ItemReadable has no storyImage assigned.");
+                return;
+            }
 
-            // Open the scroll viewer (shows current selection or first)
-            ScrollManager.Instance?.OpenIfAny();
+            if (ScrollManager.Instance == null)
+            {
+                Debug.LogWarning("ScrollManager.Instance is not set in the scene.");
+                return;
+            }
 
-            // Keep previous behavior: consume after reading if consumable
+            // Enqueue the story safely
+            ScrollManager.Instance.EnqueueStoryIfNotPresent(readable.storyImage, autoOpenIfFirst: false);
+            ScrollManager.Instance.OpenIfAny();
+
+            // Consume the item if it's consumable
             ConsumeCurrentItem();
         }
     }
+
 
     // --- SAVE / LOAD ---
     [System.Serializable]
     public class InventorySlotSave
     {
-        public string itemUniqueID; // or itemID
-
+        public string itemUniqueID;
     }
 
     public InventorySlotSave[] GetSaveInventory()
@@ -284,75 +313,38 @@ public class InventorySystem : MonoBehaviour
     {
         if (savedSlots == null || uiSlots == null) return;
 
-        slots = new ItemData[totalSlots]; // initialize
+        slots = new ItemData[totalSlots];
 
         for (int i = 0; i < slots.Length; i++)
         {
-            slots[i] = null; // clear first
+            slots[i] = null;
 
             if (i < savedSlots.Length && savedSlots[i] != null && !string.IsNullOrEmpty(savedSlots[i].itemUniqueID))
             {
                 string id = savedSlots[i].itemUniqueID;
                 ItemData item = null;
 
-                // 1) Prefer ItemDatabase (explicit list of all items)
-                if (itemDatabase != null)
-                {
-                    item = itemDatabase.GetItemByID(id);
-                }
+                if (itemDatabase != null) item = itemDatabase.GetItemByID(id);
+                if (item == null) item = ItemRegistry.Instance?.FindByUniqueID(id);
 
-                // 2) Fallback: scene ItemRegistry singleton (if present)
-                if (item == null)
-                {
-                    item = ItemRegistry.Instance?.FindByUniqueID(id);
-                }
-
-                // 3a) Fallback: Resources ItemRegistryData (ScriptableObject)
                 if (item == null)
                 {
                     ItemRegistryData reg = Resources.Load<ItemRegistryData>("ItemRegistry");
                     if (reg == null) reg = Resources.Load<ItemRegistryData>("Items/ItemRegistry");
-                    if (reg == null) reg = Resources.Load<ItemRegistryData>("items/ItemRegistry");
                     if (reg != null && reg.items != null)
                     {
-                        for (int r = 0; r < reg.items.Length; r++)
-                        {
-                            var it = reg.items[r];
-                            if (it != null && it.uniqueID == id) { item = it; break; }
-                        }
+                        foreach (var it in reg.items) { if (it != null && it.uniqueID == id) { item = it; break; } }
                     }
                 }
 
-                // 3b) Fallback: Resources lookup (any folder, case-insensitive common paths)
+                // Final heavy fallback
                 if (item == null)
                 {
-                    // Common folder names
-                    ItemData[] poolsA = Resources.LoadAll<ItemData>("Items");
-                    if (item == null && poolsA != null)
-                    {
-                        foreach (var it in poolsA) { if (it != null && it.uniqueID == id) { item = it; break; } }
-                    }
-
-                    ItemData[] poolsB = (item == null) ? Resources.LoadAll<ItemData>("items") : null;
-                    if (item == null && poolsB != null)
-                    {
-                        foreach (var it in poolsB) { if (it != null && it.uniqueID == id) { item = it; break; } }
-                    }
-
-                    // Last resort: scan entire Resources
-                    if (item == null)
-                    {
-                        ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
-                        foreach (var it in poolsAny) { if (it != null && it.uniqueID == id) { item = it; break; } }
-                    }
+                    ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
+                    foreach (var it in poolsAny) { if (it != null && it.uniqueID == id) { item = it; break; } }
                 }
 
-                if (item == null)
-                {
-                    Debug.LogWarning($"Inventory load: Could not resolve item with ID '{id}'. Ensure it exists in ItemDatabase or ItemRegistry.");
-                }
-
-                slots[i] = item;
+                if (item != null) slots[i] = item;
             }
         }
 
@@ -364,7 +356,6 @@ public class InventorySystem : MonoBehaviour
         if (!holdingNothing)
             SpawnCurrentSlotModel();
     }
-
 
     public int GetSelectedSlotIndex() => selectedSlot;
     public bool GetHoldingNothing() => holdingNothing;
@@ -378,7 +369,6 @@ public class InventorySystem : MonoBehaviour
         slots[indexA] = slots[indexB];
         slots[indexB] = temp;
 
-        // Update hand model if selected slot changed
         if (indexA == selectedSlot || indexB == selectedSlot)
         {
             if (currentHandModel != null) Destroy(currentHandModel);
@@ -387,5 +377,4 @@ public class InventorySystem : MonoBehaviour
 
         UpdateUI();
     }
-
 }

@@ -10,10 +10,17 @@ public class NPCRoaming : MonoBehaviour
     public Transform model;
     public Transform player;
     // REFERENCE TO NEW SCRIPT
-    public GhostAudioController audioController; 
+    public GhostAudioController audioController;
 
     [Header("Waypoints")]
     public Transform[] waypoints;
+
+    [Header("Movement Speeds")]
+    public float roamSpeed = 2.5f;
+    public float chaseSpeed = 5.5f;
+    public float banishedSpeed = 0f;
+    public float acceleration = 8f;
+    public float angularSpeed = 720f;
 
     [Header("Settings")]
     public float waypointThreshold = 1f;
@@ -49,6 +56,10 @@ public class NPCRoaming : MonoBehaviour
     public float hoverAmplitude = 0.8f;
     public float hoverFrequency = 1f;
 
+
+    [Header("Player Settings")]
+    public Transform defaultPlayerSpawn; // Assign in Inspector: default spawn if no save exists
+    
     // State Variables
     public bool followingPlayer = false;
     private List<Transform> originalWaypoints = new List<Transform>();
@@ -59,9 +70,15 @@ public class NPCRoaming : MonoBehaviour
     void Start()
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
-        
+
         // Auto-find audio controller if not assigned
         if (audioController == null) audioController = GetComponent<GhostAudioController>();
+
+        // ======== SPEED INIT ========
+        agent.speed = roamSpeed;
+        agent.acceleration = acceleration;
+        agent.angularSpeed = angularSpeed;
+        agent.stoppingDistance = 0f;
 
         modelForwardOffset = new Vector3(-90f, 0f, 90f);
         if (model != null) model.localRotation = Quaternion.Euler(modelForwardOffset);
@@ -87,6 +104,9 @@ public class NPCRoaming : MonoBehaviour
 
         CalculatePlayerSpeed();
 
+        // ======== SPEED ENTRY POINT ========
+        UpdateSpeed();
+
         // 1. Detection Logic
         if (player != null)
         {
@@ -109,7 +129,7 @@ public class NPCRoaming : MonoBehaviour
         }
 
         // 2. Update Audio State via Controller
-        if (audioController != null) 
+        if (audioController != null)
             audioController.UpdateState(followingPlayer);
 
         // 3. Movement Logic
@@ -130,6 +150,18 @@ public class NPCRoaming : MonoBehaviour
         HoverMotion();
         RotateBody();
         RotateModel();
+    }
+
+    // ================= SPEED FUNCTION =================
+    private void UpdateSpeed()
+    {
+        if (isBanished || alreadyTriggeredScare)
+        {
+            agent.speed = banishedSpeed;
+            return;
+        }
+
+        agent.speed = followingPlayer ? chaseSpeed : roamSpeed;
     }
 
     public bool AttemptBanish(ItemData itemUsed)
@@ -153,7 +185,7 @@ public class NPCRoaming : MonoBehaviour
     {
         isBanished = true;
         followingPlayer = false;
-        
+
         // Trigger Audio Banish
         if (audioController != null) audioController.PlayBanish();
 
@@ -166,7 +198,7 @@ public class NPCRoaming : MonoBehaviour
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
-        
+
         // Silence Audio while hidden
         if (audioController != null) audioController.StopAudio();
 
@@ -181,7 +213,7 @@ public class NPCRoaming : MonoBehaviour
 
         agent.isStopped = false;
         isBanished = false;
-        
+
         // Restart Audio
         if (audioController != null) audioController.ResetAudio();
     }
@@ -276,6 +308,7 @@ public class NPCRoaming : MonoBehaviour
             alreadyTriggeredScare = true;
             agent.isStopped = true;
             agent.velocity = Vector3.zero;
+            agent.speed = 0f;
 
             // Trigger Audio Scare
             if (audioController != null) audioController.PlayScare();
@@ -301,7 +334,7 @@ public class NPCRoaming : MonoBehaviour
 
         yield return new WaitForSeconds(0.1f);
         MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
-        
+
         ResetGhostState();
         TogglePlayerControls(true);
     }
@@ -312,7 +345,8 @@ public class NPCRoaming : MonoBehaviour
         followingPlayer = false;
         agent.isStopped = false;
         isBanished = false;
-        
+        agent.speed = roamSpeed;
+
         // Reset Audio
         if (audioController != null) audioController.ResetAudio();
 
@@ -322,11 +356,11 @@ public class NPCRoaming : MonoBehaviour
 
     private void MoveGhostToDifferentWaypoint(float minDistanceFromPlayer)
     {
-        // (Identical to previous logic - kept for completeness)
         if (originalWaypoints == null || originalWaypoints.Count == 0) return;
         if (player == null) return;
         int attempts = 0; int chosen = -1;
-        while (attempts < 10) {
+        while (attempts < 10)
+        {
             int idx = Random.Range(0, originalWaypoints.Count);
             if (idx == currentWaypointIndex) { attempts++; continue; }
             if (Vector3.Distance(originalWaypoints[idx].position, player.position) >= minDistanceFromPlayer) { chosen = idx; break; }

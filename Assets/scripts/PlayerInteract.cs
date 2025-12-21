@@ -88,21 +88,38 @@ public class PlayerInteract : MonoBehaviour
         WeaponSocket socket = hit.collider.GetComponent<WeaponSocket>();
         if (socket != null)
         {
-            if (socket.isOccupied)
+            // --- Handle socket weapon interaction properly
+            if (socket.isOccupied || currentItem is VishnuWeaponItemData)
             {
-                VishnuWeaponItemData weapon = socket.TakeWeapon();
-                if (weapon != null)
-                    inventory.AddItem(weapon);
-                lastInteractFrame = Time.frameCount;
-                return;
+                // If socket is full, take the weapon back
+                if (socket.isOccupied)
+                {
+                    VishnuWeaponItemData weapon = socket.TakeWeapon();
+                    if (weapon != null)
+                        inventory.AddItem(weapon);
+
+                    lastInteractFrame = Time.frameCount;
+                    return;
+                }
+
+                // If socket is empty, try to place weapon from hand
+                if (currentItem is VishnuWeaponItemData)
+                {
+                    // Keep a reference to the weapon before removing from inventory
+                    var weaponToPlace = inventory.RemoveCurrentItem() as VishnuWeaponItemData;
+                    if (weaponToPlace != null)
+                    {
+                        socket.TryPlaceWeapon(weaponToPlace);
+                    }
+
+                    lastInteractFrame = Time.frameCount;
+                    return;
+                }
             }
 
-            if (currentItem is VishnuWeaponItemData weaponInHand)
-            {
-                socket.TryPlaceWeapon(weaponInHand);
-                inventory.ConsumeCurrentItem();
-                lastInteractFrame = Time.frameCount;
-            }
+            // Fallback: call generic Interact for sockets without special weapon handling
+            socket.Interact(inventory);
+            lastInteractFrame = Time.frameCount;
             return;
         }
 
@@ -126,4 +143,5 @@ public class PlayerInteract : MonoBehaviour
             }
         }
     }
+
 }
