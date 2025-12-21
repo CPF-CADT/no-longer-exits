@@ -3,31 +3,29 @@ using System.IO;
 using UnityEngine.Events;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
-using System.Linq; // Added for easier list handling
+using System.Linq; // For easier list handling
 
 public class SaveManager : MonoBehaviour
 {
     public static SaveManager Instance;
 
     private string savePath;
-    
-    // Serialized so you can drag it in manually if Tag lookup fails
-    [SerializeField] private GameObject player; 
 
+    [SerializeField] private GameObject player; // Player reference if Tag lookup fails
     public bool autoLoadOnStart = true;
     public UnityEvent OnSaveCompleted;
     public UnityEvent OnLoadCompleted;
 
     private void Awake()
     {
-        if (Instance == null) 
-        { 
-            Instance = this; 
-            DontDestroyOnLoad(gameObject); 
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
-        else 
-        { 
-            Destroy(gameObject); 
+        else
+        {
+            Destroy(gameObject);
         }
 
         savePath = Application.persistentDataPath + "/horrorsave.json";
@@ -35,9 +33,8 @@ public class SaveManager : MonoBehaviour
 
     private void Start()
     {
-        // Small delay to ensure all other Awake/Start methods have finished
-        if (autoLoadOnStart && File.Exists(savePath)) 
-            Invoke(nameof(RespawnPlayer), 0.1f); 
+        if (autoLoadOnStart && File.Exists(savePath))
+            Invoke(nameof(RespawnPlayer), 0.1f);
     }
 
     [System.Serializable]
@@ -48,7 +45,7 @@ public class SaveManager : MonoBehaviour
         public InventorySystem.InventorySlotSave[] inventory;
         public int selectedSlot;
         public bool holdingEmpty;
-        public List<SaveObjectState> objectStates; 
+        public List<SaveObjectState> objectStates;
     }
 
     public void SaveGame()
@@ -60,62 +57,79 @@ public class SaveManager : MonoBehaviour
         {
             position = new float[] { player.transform.position.x, player.transform.position.y, player.transform.position.z },
             rotation = new float[] { player.transform.eulerAngles.x, player.transform.eulerAngles.y, player.transform.eulerAngles.z },
-            
-            // Null checks added for safety
             inventory = InventorySystem.Instance != null ? InventorySystem.Instance.GetSaveInventory() : new InventorySystem.InventorySlotSave[0],
             selectedSlot = InventorySystem.Instance != null ? InventorySystem.Instance.GetSelectedSlotIndex() : 0,
             holdingEmpty = InventorySystem.Instance == null || InventorySystem.Instance.GetHoldingNothing(),
-            
             objectStates = CaptureEnvironmentStates()
         };
 
-        string json = JsonUtility.ToJson(data, true); // 'true' makes the JSON pretty-print (easier to read for debugging)
+        string json = JsonUtility.ToJson(data, true);
         File.WriteAllText(savePath, json);
-        
+
         OnSaveCompleted?.Invoke();
         Debug.Log($"Game saved to: {savePath}");
     }
 
-    public void RespawnPlayer()
+    public void RespawnPlayer(Transform defaultSpawn = null)
     {
-        if (!File.Exists(savePath)) 
+        if (player == null)
+            player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null) return;
+
+        if (!File.Exists(savePath))
         {
-            Debug.Log("No save file found.");
+            // No save found, reload scene
+            Debug.Log("No save file found. Reloading scene...");
+
+            if (defaultSpawn != null)
+            {
+                // Move player to default spawn after scene reload
+                SceneManager.sceneLoaded += (scene, mode) =>
+                {
+                    if (player != null)
+                    {
+                        CharacterController cc = player.GetComponent<CharacterController>();
+                        if (cc != null) cc.enabled = false;
+
+                        player.transform.position = defaultSpawn.position;
+                        player.transform.rotation = defaultSpawn.rotation;
+
+                        if (cc != null) cc.enabled = true;
+
+                        Physics.SyncTransforms();
+                    }
+                };
+            }
+
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             return;
         }
 
-        if (player == null) player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
-
-        try 
+        // Save exists, load normally
+        try
         {
             string json = File.ReadAllText(savePath);
             SaveData data = JsonUtility.FromJson<SaveData>(json);
 
-            // 1. Move Player
             Vector3 pos = new Vector3(data.position[0], data.position[1], data.position[2]);
-            Vector3 rot = new Vector3(data.rotation[0], data.rotation[1], data.rotation[2]);
+            Quaternion rot = Quaternion.Euler(data.rotation[0], data.rotation[1], data.rotation[2]);
 
             CharacterController cc = player.GetComponent<CharacterController>();
-            if (cc != null) cc.enabled = false; // Must disable CC to teleport
+            if (cc != null) cc.enabled = false;
 
             player.transform.position = pos;
-            player.transform.eulerAngles = rot;
-            Physics.SyncTransforms(); // Force physics update
+            player.transform.rotation = rot;
 
             if (cc != null) cc.enabled = true;
+            Physics.SyncTransforms();
 
-            // 2. Load Inventory
+            // Load inventory
             if (InventorySystem.Instance != null)
-            {
                 InventorySystem.Instance.LoadInventoryFromSave(data.inventory, data.selectedSlot, data.holdingEmpty);
-            }
 
-            // 3. Load Environment (Doors, Chests, Puzzles)
+            // Restore environment
             if (data.objectStates != null && data.objectStates.Count > 0)
-            {
                 RestoreEnvironmentStates(data.objectStates);
-            }
 
             OnLoadCompleted?.Invoke();
             Debug.Log("Game loaded successfully!");
@@ -129,8 +143,6 @@ public class SaveManager : MonoBehaviour
     // -------------------- Environment Save/Load --------------------
     private List<ISaveable> GetSaveables()
     {
-        // FindObjectsOfType(true) includes inactive objects, which is good.
-        // We use Linq to filter for ISaveable interfaces quickly.
         return FindObjectsOfType<MonoBehaviour>(true).OfType<ISaveable>().ToList();
     }
 
@@ -140,18 +152,14 @@ public class SaveManager : MonoBehaviour
         foreach (var s in GetSaveables())
         {
             var state = s.CaptureState();
-            // Only save if the ID is valid
             if (state != null && !string.IsNullOrEmpty(state.id))
                 list.Add(state);
-            else
-                Debug.LogWarning($"[SaveManager] Found saveable object without a valid ID. It will not be saved.");
         }
         return list;
     }
 
     private void RestoreEnvironmentStates(List<SaveObjectState> states)
     {
-        // Convert list to Dictionary for fast lookup
         var stateDict = new Dictionary<string, SaveObjectState>();
         foreach (var s in states)
         {
@@ -159,12 +167,9 @@ public class SaveManager : MonoBehaviour
                 stateDict.Add(s.id, s);
         }
 
-        // Find all saveable objects currently in the scene
         foreach (var saveableObj in GetSaveables())
         {
             string id = saveableObj.GetUniqueID();
-            
-            // If this object exists in our save file, restore it
             if (!string.IsNullOrEmpty(id) && stateDict.TryGetValue(id, out var savedState))
             {
                 saveableObj.RestoreState(savedState);

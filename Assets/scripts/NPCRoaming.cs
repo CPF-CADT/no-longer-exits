@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
 
 public class NPCRoaming : MonoBehaviour
 {
@@ -9,7 +9,6 @@ public class NPCRoaming : MonoBehaviour
     public NavMeshAgent agent;
     public Transform model;
     public Transform player;
-    // REFERENCE TO NEW SCRIPT
     public GhostAudioController audioController;
 
     [Header("Waypoints")]
@@ -36,16 +35,12 @@ public class NPCRoaming : MonoBehaviour
     public float hearingRange = 10f;
     public float runSpeedThreshold = 4f;
 
-    [Header("Sensors - Doors")]
-    public float doorInteractRange = 5f;
-
     [Header("Close Range Scare Detection")]
     public float scareDistance = 2f;
     public bool alreadyTriggeredScare = false;
     public float deathDelayTime = 2.0f;
     public float minWaypointDistanceFromPlayer = 6f;
 
-    // --- BANISHMENT SETTINGS ---
     [Header("Banishment")]
     public ItemData itemRequiredToBanish;
     public float freezeDuration = 2f;
@@ -56,12 +51,10 @@ public class NPCRoaming : MonoBehaviour
     public float hoverAmplitude = 0.8f;
     public float hoverFrequency = 1f;
 
+    [Header("Default Spawn (if no save exists)")]
+    public Transform defaultSpawnPoint;
 
-    [Header("Player Settings")]
-    public Transform defaultPlayerSpawn; // Assign in Inspector: default spawn if no save exists
-    
-    // State Variables
-    public bool followingPlayer = false;
+    private bool followingPlayer = false;
     private List<Transform> originalWaypoints = new List<Transform>();
     private int currentWaypointIndex = -1;
     private Vector3 lastPlayerPosition;
@@ -70,11 +63,8 @@ public class NPCRoaming : MonoBehaviour
     void Start()
     {
         if (agent == null) agent = GetComponent<NavMeshAgent>();
-
-        // Auto-find audio controller if not assigned
         if (audioController == null) audioController = GetComponent<GhostAudioController>();
 
-        // ======== SPEED INIT ========
         agent.speed = roamSpeed;
         agent.acceleration = acceleration;
         agent.angularSpeed = angularSpeed;
@@ -103,36 +93,55 @@ public class NPCRoaming : MonoBehaviour
         if (isBanished || alreadyTriggeredScare) return;
 
         CalculatePlayerSpeed();
-
-        // ======== SPEED ENTRY POINT ========
         UpdateSpeed();
+        HandleDetection();
+        UpdateAudio();
+        HandleMovement();
+        CheckNearbyDoors();
+        CheckCloseDetection();
+        HoverMotion();
+        RotateBody();
+        RotateModel();
+    }
 
-        // 1. Detection Logic
-        if (player != null)
+    private void UpdateSpeed()
+    {
+        if (isBanished || alreadyTriggeredScare)
         {
-            if (HideBox.IsPlayerHiddenAnywhere())
-            {
-                followingPlayer = false;
-            }
-            else
-            {
-                bool canSee = CheckVision();
-                bool canHear = CheckHearing();
+            agent.speed = banishedSpeed;
+            return;
+        }
+        agent.speed = followingPlayer ? chaseSpeed : roamSpeed;
+    }
 
-                if (canSee || canHear) followingPlayer = true;
-                else if (followingPlayer)
-                {
-                    float dist = Vector3.Distance(transform.position, player.position);
-                    if (dist > visionRange && dist > hearingRange) followingPlayer = false;
-                }
-            }
+    private void HandleDetection()
+    {
+        if (player == null) return;
+        if (HideBox.IsPlayerHiddenAnywhere())
+        {
+            followingPlayer = false;
+            return;
         }
 
-        // 2. Update Audio State via Controller
+        bool canSee = CheckVision();
+        bool canHear = CheckHearing();
+
+        if (canSee || canHear) followingPlayer = true;
+        else if (followingPlayer)
+        {
+            float dist = Vector3.Distance(transform.position, player.position);
+            if (dist > visionRange && dist > hearingRange) followingPlayer = false;
+        }
+    }
+
+    private void UpdateAudio()
+    {
         if (audioController != null)
             audioController.UpdateState(followingPlayer);
+    }
 
-        // 3. Movement Logic
+    private void HandleMovement()
+    {
         if (followingPlayer && player != null)
         {
             agent.SetDestination(player.position);
@@ -144,37 +153,15 @@ public class NPCRoaming : MonoBehaviour
                 GoToNextWaypoint();
             }
         }
-
-        CheckNearbyDoors();
-        CheckCloseDetection();
-        HoverMotion();
-        RotateBody();
-        RotateModel();
-    }
-
-    // ================= SPEED FUNCTION =================
-    private void UpdateSpeed()
-    {
-        if (isBanished || alreadyTriggeredScare)
-        {
-            agent.speed = banishedSpeed;
-            return;
-        }
-
-        agent.speed = followingPlayer ? chaseSpeed : roamSpeed;
     }
 
     public bool AttemptBanish(ItemData itemUsed)
     {
         if (isBanished || alreadyTriggeredScare) return false;
-
-        if (itemRequiredToBanish != null)
+        if (itemRequiredToBanish != null && itemUsed != itemRequiredToBanish)
         {
-            if (itemUsed == null || itemUsed != itemRequiredToBanish)
-            {
-                Debug.Log("Ghost: That item does not scare me!");
-                return false;
-            }
+            Debug.Log("Ghost: That item does not scare me!");
+            return false;
         }
 
         StartCoroutine(BanishRoutine());
@@ -186,20 +173,15 @@ public class NPCRoaming : MonoBehaviour
         isBanished = true;
         followingPlayer = false;
 
-        // Trigger Audio Banish
         if (audioController != null) audioController.PlayBanish();
-
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
 
         yield return new WaitForSeconds(freezeDuration);
 
-        // Hide Ghost
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
-
-        // Silence Audio while hidden
         if (audioController != null) audioController.StopAudio();
 
         yield return new WaitForSeconds(10f);
@@ -207,14 +189,11 @@ public class NPCRoaming : MonoBehaviour
         GoToNextWaypoint();
         agent.Warp(originalWaypoints[currentWaypointIndex].position);
 
-        // Show Ghost
         if (model != null) model.gameObject.SetActive(true);
         if (col != null) col.enabled = true;
-
         agent.isStopped = false;
         isBanished = false;
 
-        // Restart Audio
         if (audioController != null) audioController.ResetAudio();
     }
 
@@ -229,7 +208,7 @@ public class NPCRoaming : MonoBehaviour
 
     private void CheckNearbyDoors()
     {
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, doorInteractRange);
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, 5f);
         foreach (var hit in hitColliders)
         {
             DoorController door = hit.GetComponentInParent<DoorController>();
@@ -239,26 +218,24 @@ public class NPCRoaming : MonoBehaviour
 
     private bool CheckVision()
     {
+        if (player == null) return false;
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
-        float distToPlayer = Vector3.Distance(transform.position, player.position);
-
-        if (distToPlayer > visionRange) return false;
+        float dist = Vector3.Distance(transform.position, player.position);
+        if (dist > visionRange) return false;
 
         if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2)
         {
-            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, distToPlayer, obstacleMask))
-            {
+            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, dist, obstacleMask))
                 return true;
-            }
         }
         return false;
     }
 
     private bool CheckHearing()
     {
-        float distToPlayer = Vector3.Distance(transform.position, player.position);
-        if (distToPlayer <= hearingRange && playerCurrentSpeed > runSpeedThreshold) return true;
-        return false;
+        if (player == null) return false;
+        float dist = Vector3.Distance(transform.position, player.position);
+        return dist <= hearingRange && playerCurrentSpeed > runSpeedThreshold;
     }
 
     private void GoToNextWaypoint()
@@ -310,11 +287,11 @@ public class NPCRoaming : MonoBehaviour
             agent.velocity = Vector3.zero;
             agent.speed = 0f;
 
-            // Trigger Audio Scare
             if (audioController != null) audioController.PlayScare();
 
             transform.LookAt(player);
             if (model != null) model.LookAt(player.position + Vector3.up * 1.5f);
+
             TogglePlayerControls(false);
 
             if (GhostCameraController.Instance != null)
@@ -327,14 +304,17 @@ public class NPCRoaming : MonoBehaviour
     private IEnumerator HandleDeathSequence()
     {
         yield return new WaitForSeconds(deathDelayTime);
-        if (GhostCameraController.Instance != null) GhostCameraController.Instance.ResetCamera();
 
-        if (SaveManager.Instance != null) SaveManager.Instance.RespawnPlayer();
-        else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        if (GhostCameraController.Instance != null)
+            GhostCameraController.Instance.ResetCamera();
+
+        // Respawn player using SaveManager
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.RespawnPlayer(defaultSpawnPoint);
 
         yield return new WaitForSeconds(0.1f);
-        MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
 
+        MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
         ResetGhostState();
         TogglePlayerControls(true);
     }
@@ -346,10 +326,6 @@ public class NPCRoaming : MonoBehaviour
         agent.isStopped = false;
         isBanished = false;
         agent.speed = roamSpeed;
-
-        // Reset Audio
-        if (audioController != null) audioController.ResetAudio();
-
         if (player != null) lastPlayerPosition = player.position;
         GoToNextWaypoint();
     }
@@ -358,7 +334,9 @@ public class NPCRoaming : MonoBehaviour
     {
         if (originalWaypoints == null || originalWaypoints.Count == 0) return;
         if (player == null) return;
-        int attempts = 0; int chosen = -1;
+
+        int attempts = 0;
+        int chosen = -1;
         while (attempts < 10)
         {
             int idx = Random.Range(0, originalWaypoints.Count);
