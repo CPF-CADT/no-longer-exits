@@ -50,6 +50,11 @@ public class NPCRoaming : MonoBehaviour
     public float hoverHeight = 0.2f;
     public float hoverAmplitude = 0.8f;
     public float hoverFrequency = 1f;
+    [Header("First Death Item Drop")]
+    public Transform itemSlot;      // Parent/container
+    public GameObject itemSpawn;    // Prefab to drop
+
+    private bool hasDroppedItem = false; // first-time only flag
 
     [Header("Default Spawn (if no save exists)")]
     public Transform defaultSpawnPoint;
@@ -178,6 +183,7 @@ public class NPCRoaming : MonoBehaviour
         agent.velocity = Vector3.zero;
 
         yield return new WaitForSeconds(freezeDuration);
+        TryDropItemOnce();
 
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
@@ -308,7 +314,6 @@ public class NPCRoaming : MonoBehaviour
         if (GhostCameraController.Instance != null)
             GhostCameraController.Instance.ResetCamera();
 
-        // Respawn player using SaveManager
         if (SaveManager.Instance != null)
             SaveManager.Instance.RespawnPlayer(defaultSpawnPoint);
 
@@ -318,6 +323,7 @@ public class NPCRoaming : MonoBehaviour
         ResetGhostState();
         TogglePlayerControls(true);
     }
+
 
     private void ResetGhostState()
     {
@@ -370,4 +376,20 @@ public class NPCRoaming : MonoBehaviour
         Rigidbody rb = player.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = !state;
     }
+    private void TryDropItemOnce()
+    {
+        if (hasDroppedItem) return;
+        if (itemSlot == null || itemSpawn == null) return;
+
+        GameObject droppedItem = Instantiate(itemSpawn, itemSlot);
+        droppedItem.transform.localPosition = Vector3.zero;
+        droppedItem.transform.localRotation = Quaternion.identity;
+        droppedItem.transform.localScale = Vector3.one * 0.05f;
+
+        hasDroppedItem = true;
+    }
+
+
+
+
 }

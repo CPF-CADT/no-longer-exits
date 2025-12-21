@@ -77063,6 +77063,14 @@ PrefabInstance:
       propertyPath: waypoints.Array.data[11]
       value: 
       objectReference: {fileID: 1728471088}
+    - target: {fileID: 3059556945426306124, guid: 3bf4311bf51d95f4e9745fe8b825d5ce, type: 3}
+      propertyPath: idleSound
+      value: 
+      objectReference: {fileID: 8300000, guid: f4ee7dd2902440543bbe320377dd718d, type: 3}
+    - target: {fileID: 3059556945426306124, guid: 3bf4311bf51d95f4e9745fe8b825d5ce, type: 3}
+      propertyPath: chaseSound
+      value: 
+      objectReference: {fileID: 8300000, guid: 8cdd80dd306b7834994533e652167ea2, type: 3}
     - target: {fileID: 3215063403612037838, guid: 3bf4311bf51d95f4e9745fe8b825d5ce, type: 3}
       propertyPath: m_LocalPosition.x
       value: 496.2173
