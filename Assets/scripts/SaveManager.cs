@@ -1,9 +1,10 @@
 using UnityEngine;
 using System.IO;
 using UnityEngine.Events;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
-using System.Linq; // For easier list handling
+using System.Linq;
 
 public class SaveManager : MonoBehaviour
 {
@@ -11,7 +12,10 @@ public class SaveManager : MonoBehaviour
 
     private string savePath;
 
-    [SerializeField] private GameObject player; // Player reference if Tag lookup fails
+    // We store the data temporarily here while the scene reloads
+    private SaveData pendingLoadData;
+
+    [SerializeField] private GameObject player;
     public bool autoLoadOnStart = true;
     public UnityEvent OnSaveCompleted;
     public UnityEvent OnLoadCompleted;
@@ -21,7 +25,7 @@ public class SaveManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            DontDestroyOnLoad(gameObject); // MUST persist between scene loads
         }
         else
         {
@@ -33,8 +37,19 @@ public class SaveManager : MonoBehaviour
 
     private void Start()
     {
+        // If we just started the game app, try to auto-load
         if (autoLoadOnStart && File.Exists(savePath))
-            Invoke(nameof(RespawnPlayer), 0.1f);
+        {
+            // We don't need to reload the scene here because the app just started
+            // But we do need the delay for Unity to initialize
+            StartCoroutine(InitialLoadRoutine());
+        }
+    }
+
+    private IEnumerator InitialLoadRoutine()
+    {
+        yield return new WaitForSeconds(0.1f);
+        LoadDataInternal(); // Just load the data, scene is already fresh
     }
 
     [System.Serializable]
@@ -51,7 +66,7 @@ public class SaveManager : MonoBehaviour
     public void SaveGame()
     {
         if (player == null) player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) { Debug.LogError("Cannot Save: Player not found!"); return; }
+        if (player == null) return;
 
         SaveData data = new SaveData
         {
@@ -70,74 +85,82 @@ public class SaveManager : MonoBehaviour
         Debug.Log($"Game saved to: {savePath}");
     }
 
+    // --- MAIN LOAD FUNCTION ---
     public void RespawnPlayer(Transform defaultSpawn = null)
     {
-        if (player == null)
-            player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
-
         if (!File.Exists(savePath))
         {
-            // No save found, reload scene
-            Debug.Log("No save file found. Reloading scene...");
-
-            if (defaultSpawn != null)
-            {
-                // Move player to default spawn after scene reload
-                SceneManager.sceneLoaded += (scene, mode) =>
-                {
-                    if (player != null)
-                    {
-                        CharacterController cc = player.GetComponent<CharacterController>();
-                        if (cc != null) cc.enabled = false;
-
-                        player.transform.position = defaultSpawn.position;
-                        player.transform.rotation = defaultSpawn.rotation;
-
-                        if (cc != null) cc.enabled = true;
-
-                        Physics.SyncTransforms();
-                    }
-                };
-            }
-
+            Debug.Log("No save found. Restarting scene fresh.");
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             return;
         }
 
-        // Save exists, load normally
+        // 1. Read the file FIRST to make sure it's valid
         try
         {
             string json = File.ReadAllText(savePath);
-            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            pendingLoadData = JsonUtility.FromJson<SaveData>(json);
 
-            Vector3 pos = new Vector3(data.position[0], data.position[1], data.position[2]);
-            Quaternion rot = Quaternion.Euler(data.rotation[0], data.rotation[1], data.rotation[2]);
+            // 2. Subscribe to the scene load event
+            SceneManager.sceneLoaded += OnSceneLoadedForLoad;
 
-            CharacterController cc = player.GetComponent<CharacterController>();
-            if (cc != null) cc.enabled = false;
-
-            player.transform.position = pos;
-            player.transform.rotation = rot;
-
-            if (cc != null) cc.enabled = true;
-            Physics.SyncTransforms();
-
-            // Load inventory
-            if (InventorySystem.Instance != null)
-                InventorySystem.Instance.LoadInventoryFromSave(data.inventory, data.selectedSlot, data.holdingEmpty);
-
-            // Restore environment
-            if (data.objectStates != null && data.objectStates.Count > 0)
-                RestoreEnvironmentStates(data.objectStates);
-
-            OnLoadCompleted?.Invoke();
-            Debug.Log("Game loaded successfully!");
+            // 3. Reload the Scene (This cleans the "Dirty" state)
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to load game: {ex.Message}");
+            Debug.LogError("Save file corrupted: " + ex.Message);
         }
+    }
+
+    // This runs automatically AFTER the scene finishes reloading
+    private void OnSceneLoadedForLoad(Scene scene, LoadSceneMode mode)
+    {
+        // Unsubscribe immediately so it doesn't happen again
+        SceneManager.sceneLoaded -= OnSceneLoadedForLoad;
+
+        // Now apply the data to the fresh scene
+        if (pendingLoadData != null)
+        {
+            ApplyLoadData(pendingLoadData);
+            pendingLoadData = null; // Clear it
+        }
+    }
+
+    // Re-used function for loading data without reloading scene (for Start())
+    private void LoadDataInternal()
+    {
+        if (File.Exists(savePath))
+        {
+            string json = File.ReadAllText(savePath);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            ApplyLoadData(data);
+        }
+    }
+
+    private void ApplyLoadData(SaveData data)
+    {
+        player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            CharacterController cc = player.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+
+            player.transform.position = new Vector3(data.position[0], data.position[1], data.position[2]);
+            player.transform.rotation = Quaternion.Euler(data.rotation[0], data.rotation[1], data.rotation[2]);
+
+            if (cc != null) cc.enabled = true;
+            Physics.SyncTransforms();
+        }
+
+        if (InventorySystem.Instance != null)
+            InventorySystem.Instance.LoadInventoryFromSave(data.inventory, data.selectedSlot, data.holdingEmpty);
+
+        if (data.objectStates != null)
+            RestoreEnvironmentStates(data.objectStates);
+
+        OnLoadCompleted?.Invoke();
+        Debug.Log("Game loaded successfully (Scene Refreshed)!");
     }
 
     // -------------------- Environment Save/Load --------------------
@@ -179,15 +202,7 @@ public class SaveManager : MonoBehaviour
 
     public void DeleteSave(bool reloadScene = false)
     {
-        if (File.Exists(savePath))
-        {
-            File.Delete(savePath);
-            Debug.Log("Save file deleted.");
-        }
-
-        if (reloadScene)
-        {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-        }
+        if (File.Exists(savePath)) File.Delete(savePath);
+        if (reloadScene) SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

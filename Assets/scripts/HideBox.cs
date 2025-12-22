@@ -12,21 +12,30 @@ public class HideBox : MonoBehaviour
     public GameObject playerModel;
 
     [Header("Cameras")]
-    [Tooltip("Main player camera (FPP / TPS)")]
     public Camera playerCamera;
-
-    [Tooltip("Camera used while hiding inside the box")]
     public Camera hideCamera;
+    private InteractionHint hint;
+
+    private AudioListener playerListener;
+    private AudioListener hideListener;
 
     private ThirdPersonController controller;
     private bool isPlayerHidden = false;
     private Vector3 originalPlayerPosition;
 
-    // Track all hide boxes
     private static List<HideBox> allHideBoxes = new List<HideBox>();
 
     void OnEnable() => allHideBoxes.Add(this);
     void OnDisable() => allHideBoxes.Remove(this);
+
+    void Awake()
+    {
+        // Get hint on this GameObject or child
+        hint = GetComponentInChildren<InteractionHint>(true);
+
+        if (hint == null)
+            Debug.LogError($"{name} is missing InteractionHint component");
+    }
 
     void Start()
     {
@@ -36,9 +45,15 @@ public class HideBox : MonoBehaviour
         if (playerModel == null && player != null)
             playerModel = player.GetComponentInChildren<SkinnedMeshRenderer>()?.gameObject;
 
-        // Ensure correct camera state at start
+        if (playerCamera != null)
+            playerListener = playerCamera.GetComponent<AudioListener>();
+
         if (hideCamera != null)
+        {
             hideCamera.enabled = false;
+            hideListener = hideCamera.GetComponent<AudioListener>();
+            if (hideListener != null) hideListener.enabled = false;
+        }
     }
 
     void Update()
@@ -51,20 +66,16 @@ public class HideBox : MonoBehaviour
         {
             ToggleHide();
         }
+
+        hint.useAlternate = isPlayerHidden;
     }
 
-    private void ToggleHide()
+    public void ToggleHide()
     {
         isPlayerHidden = !isPlayerHidden;
 
-        if (isPlayerHidden)
-        {
-            EnterHide();
-        }
-        else
-        {
-            ExitHide();
-        }
+        if (isPlayerHidden) EnterHide();
+        else ExitHide();
     }
 
     private void EnterHide()
@@ -72,21 +83,20 @@ public class HideBox : MonoBehaviour
         originalPlayerPosition = player.position;
         player.position = transform.position;
 
-        // Hide player visuals only (NOT the camera)
         if (playerModel != null) playerModel.SetActive(false);
-
-        // Disable movement controller
         if (controller != null) controller.enabled = false;
 
-        // Disable player colliders
         foreach (Collider col in player.GetComponentsInChildren<Collider>())
             col.enabled = false;
 
-        // Camera switch
+        // Camera + Audio
         if (playerCamera != null) playerCamera.enabled = false;
-        if (hideCamera != null) hideCamera.enabled = true;
+        if (playerListener != null) playerListener.enabled = false;
 
-        Debug.Log("Player is hidden in the box!");
+        if (hideCamera != null) hideCamera.enabled = true;
+        if (hideListener != null) hideListener.enabled = true;
+
+        Debug.Log("Player hidden — hide camera + audio listener active");
     }
 
     private void ExitHide()
@@ -99,17 +109,18 @@ public class HideBox : MonoBehaviour
         foreach (Collider col in player.GetComponentsInChildren<Collider>())
             col.enabled = true;
 
-        // Camera switch back
+        // Camera + Audio back
         if (hideCamera != null) hideCamera.enabled = false;
-        if (playerCamera != null) playerCamera.enabled = true;
+        if (hideListener != null) hideListener.enabled = false;
 
-        Debug.Log("Player exited the box!");
+        if (playerCamera != null) playerCamera.enabled = true;
+        if (playerListener != null) playerListener.enabled = true;
+
+        Debug.Log("Player exited — player camera + audio restored");
     }
 
-    // Public getter
     public bool IsPlayerHidden => isPlayerHidden;
 
-    // Check if player is hidden anywhere
     public static bool IsPlayerHiddenAnywhere()
     {
         foreach (var box in allHideBoxes)

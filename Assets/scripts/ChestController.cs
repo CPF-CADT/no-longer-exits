@@ -27,7 +27,7 @@ public class ChestController : MonoBehaviour, ISaveable
     [Header("Persistence")]
     public PersistentID persistentID;
 
-    // This variable saves whether the item has EVER been created.
+    // specific variable to track if loot has ever been generated
     [SerializeField] private bool hasSpawned = false;
 
     private void Awake()
@@ -152,25 +152,37 @@ public class ChestController : MonoBehaviour, ISaveable
         // Visual Restore
         if (isOpen)
         {
+            // CASE 1: The chest was saved as OPEN
             if (chestAnim != null)
             {
                 chestAnim.Play("ChestAnim");
-                // Fast forward animation to the end
+                // Fast forward animation to the end so it doesn't play the opening sequence again
                 foreach (AnimationState animState in chestAnim)
                 {
-                    animState.normalizedTime = 1.0f;
+                    animState.normalizedTime = 1.0f; 
                 }
                 chestAnim.Sample();
             }
 
+            // Disable interaction
             gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+        }
+        else
+        {
+            // CASE 2: The chest was saved as CLOSED
+            if (chestAnim != null)
+            {
+                chestAnim.Stop();
+                // Reset animation to start
+                foreach (AnimationState animState in chestAnim)
+                {
+                    animState.normalizedTime = 0.0f;
+                }
+                chestAnim.Sample();
+            }
 
-            // --- IMPORTANT CHANGE ---
-            // We do NOT call SpawnLootObject here anymore.
-            // If 'hasSpawned' is true, the chest assumes the player has either:
-            // 1. Taken the item (it's in Inventory save).
-            // 2. Left the item (it's gone).
-            // This prevents infinite loot duplication.
+            // Enable interaction
+            gameObject.layer = LayerMask.NameToLayer("Default");
         }
     }
 }

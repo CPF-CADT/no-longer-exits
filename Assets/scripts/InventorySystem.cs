@@ -59,7 +59,7 @@ public class InventorySystem : MonoBehaviour
     {
         if (Input.GetKeyDown(inventoryKey)) ToggleInventoryScreen();
 
-        // Hotbar keys
+        // Hotbar keys (1-6)
         for (int i = 0; i < hotbarSize; i++)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1 + i)) SelectSlot(i);
@@ -67,6 +67,28 @@ public class InventorySystem : MonoBehaviour
 
         if (!isInventoryOpen)
         {
+            // -------------------- NEW SCROLL LOGIC --------------------
+            float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+            
+            if (scrollInput != 0f)
+            {
+                int newSlotIndex = selectedSlot;
+
+                if (scrollInput > 0f) // Scroll UP (Previous Slot)
+                {
+                    newSlotIndex--;
+                    if (newSlotIndex < 0) newSlotIndex = hotbarSize - 1; // Wrap to end
+                }
+                else if (scrollInput < 0f) // Scroll DOWN (Next Slot)
+                {
+                    newSlotIndex++;
+                    if (newSlotIndex >= hotbarSize) newSlotIndex = 0; // Wrap to start
+                }
+
+                SelectSlot(newSlotIndex);
+            }
+            // ----------------------------------------------------------
+
             if (Input.GetKeyDown(unequipKey)) ToggleEmptyHands();
             if (Input.GetKeyDown(interactKey)) HandleInteraction();
             if (Input.GetKeyDown(readKey)) CheckHandForSpecialAbility();

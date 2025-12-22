@@ -1,20 +1,26 @@
+using TMPro;
 using UnityEngine;
 
 public class PlayerInteract : MonoBehaviour
 {
-    // Frame index of the last successful interaction handled by this component
     public static int lastInteractFrame = -1;
 
     [Header("Settings")]
     public float interactRange = 3f;
     public KeyCode interactKey = KeyCode.E;
-
-    // Left click to use item (ghost banish / special)
     public KeyCode useItemKey = KeyCode.Mouse0;
     public float ghostBanishRange = 5f;
 
     [Header("Debug")]
     public bool showDebugRay = true;
+
+    [Header("References")]
+    public Camera playerCamera;
+    public TextMeshProUGUI hintText;
+
+    [Header("Performance")]
+    public float hintRaycastInterval = 0.1f; // seconds
+    private float lastHintTime = 0f;
 
     private InventorySystem inventory;
 
@@ -29,20 +35,63 @@ public class PlayerInteract : MonoBehaviour
 
     void Update()
     {
+        if (playerCamera == null) return;
+
+        // Update hint text only at intervals to save performance
+        if (Time.time - lastHintTime >= hintRaycastInterval)
+        {
+            UpdateHintText();
+            lastHintTime = Time.time;
+        }
+
+        // Handle interactions
         if (Input.GetKeyDown(interactKey))
             ShootRay(false);
-
         if (Input.GetKeyDown(useItemKey))
             ShootRay(true);
     }
 
+    void UpdateHintText()
+    {
+        hintText.text = "";
+
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+        if (!Physics.Raycast(ray, out RaycastHit hit, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            return;
+
+        // Get InteractionHint from hit or parent
+        InteractionHint hint = hit.collider.GetComponent<InteractionHint>() 
+                             ?? hit.collider.GetComponentInParent<InteractionHint>();
+
+        if (hint != null)
+        {
+            // HideBox special case
+            HideBox hideBox = hit.collider.GetComponentInParent<HideBox>();
+            if (hideBox != null)
+                hint.useAlternate = hideBox.IsPlayerHidden;
+
+            // DoorController special case
+            DoorController door = hit.collider.GetComponentInParent<DoorController>();
+            if (door != null)
+                hint.useAlternate = door.isOpen;
+
+            hintText.text = hint.GetHintText();
+        }
+        else
+        {
+            // No hint to show
+            hintText.text = "";
+        }
+    }
+
     void ShootRay(bool isUsingItem)
     {
-        Camera cam = Camera.main;
+        Camera cam = playerCamera;
         if (cam == null) return;
 
         float range = isUsingItem ? ghostBanishRange : interactRange;
         Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+
         if (!Physics.Raycast(ray, out RaycastHit hit, range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
         {
             if (showDebugRay)
@@ -71,77 +120,53 @@ public class PlayerInteract : MonoBehaviour
         }
 
         // --- Normal interactions
-        NPCInteract npc = hit.collider.GetComponent<NPCInteract>();
-        if (npc != null) { npc.Interact(); lastInteractFrame = Time.frameCount; return; }
-
-        SaveStation station = hit.collider.GetComponent<SaveStation>();
-        if (station != null) { station.Interact(); lastInteractFrame = Time.frameCount; return; }
-
-        DoorController door = hit.collider.GetComponentInParent<DoorController>();
-        if (door != null)
-        {
-            door.ToggleDoor(currentItem);
-            lastInteractFrame = Time.frameCount;
-            return;
+        if (hit.collider.GetComponent<NPCInteract>() is NPCInteract npc) 
+        { 
+            npc.Interact(); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
         }
 
-        WeaponSocket socket = hit.collider.GetComponent<WeaponSocket>();
-        if (socket != null)
-        {
-            // --- Handle socket weapon interaction properly
-            if (socket.isOccupied || currentItem is VishnuWeaponItemData)
-            {
-                // If socket is full, take the weapon back
-                if (socket.isOccupied)
-                {
-                    VishnuWeaponItemData weapon = socket.TakeWeapon();
-                    if (weapon != null)
-                        inventory.AddItem(weapon);
-
-                    lastInteractFrame = Time.frameCount;
-                    return;
-                }
-
-                // If socket is empty, try to place weapon from hand
-                if (currentItem is VishnuWeaponItemData)
-                {
-                    // Keep a reference to the weapon before removing from inventory
-                    var weaponToPlace = inventory.RemoveCurrentItem() as VishnuWeaponItemData;
-                    if (weaponToPlace != null)
-                    {
-                        socket.TryPlaceWeapon(weaponToPlace);
-                    }
-
-                    lastInteractFrame = Time.frameCount;
-                    return;
-                }
-            }
-
-            // Fallback: call generic Interact for sockets without special weapon handling
-            socket.Interact(inventory);
-            lastInteractFrame = Time.frameCount;
-            return;
+        if (hit.collider.GetComponent<SaveStation>() is SaveStation station) 
+        { 
+            station.Interact(); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
         }
 
-        ChestController chest = hit.collider.GetComponentInParent<ChestController>();
-        if (chest != null)
-        {
-            chest.OpenChest(currentItem);
-            lastInteractFrame = Time.frameCount;
-            return;
+        if (hit.collider.GetComponentInParent<DoorController>() is DoorController doorCtrl) 
+        { 
+            doorCtrl.ToggleDoor(currentItem); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
         }
 
-        // --- Item pickup: only allow if not holding anything
-        if (currentItem == null)
+        if (hit.collider.GetComponentInParent<HideBox>() is HideBox hideBox) 
+        { 
+            hideBox.ToggleHide(); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
+        }
+
+        if (hit.collider.GetComponent<WeaponSocket>() is WeaponSocket socket) 
+        { 
+            socket.Interact(inventory); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
+        }
+
+        if (hit.collider.GetComponentInParent<ChestController>() is ChestController chest) 
+        { 
+            chest.OpenChest(currentItem); 
+            lastInteractFrame = Time.frameCount; 
+            return; 
+        }
+
+        if (currentItem == null && hit.collider.GetComponent<ItemPickup>() is ItemPickup pickup && pickup.TryClaim())
         {
-            ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
-            if (pickup != null && pickup.TryClaim())
-            {
-                inventory.AddItem(pickup.itemData);
-                pickup.Pickup();
-                lastInteractFrame = Time.frameCount;
-            }
+            inventory.AddItem(pickup.itemData);
+            pickup.Pickup();
+            lastInteractFrame = Time.frameCount;
         }
     }
-
 }

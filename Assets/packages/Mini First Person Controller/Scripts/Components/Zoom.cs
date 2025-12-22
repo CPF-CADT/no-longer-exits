@@ -10,7 +10,6 @@ public class Zoom : MonoBehaviour
     public float currentZoom;
     public float sensitivity = 1;
 
-
     void Awake()
     {
         // Get the camera on this gameObject and the defaultZoom.
@@ -23,9 +22,12 @@ public class Zoom : MonoBehaviour
 
     void Update()
     {
-        // Update the currentZoom and the camera's fieldOfView.
-        currentZoom += Input.mouseScrollDelta.y * sensitivity * .05f;
+        // --- ZOOM DISABLED TO ALLOW INVENTORY SCROLLING ---
+        // To re-enable later (e.g. for Right Click Zoom), change this logic.
+        
+        /* currentZoom += Input.mouseScrollDelta.y * sensitivity * .05f;
         currentZoom = Mathf.Clamp01(currentZoom);
         camera.fieldOfView = Mathf.Lerp(defaultFOV, maxZoomFOV, currentZoom);
+        */
     }
 }
