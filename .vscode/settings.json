@@ -51,5 +51,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "game_lap3-main.sln"
+    "dotnet.defaultSolution": "no-longer-exits.sln"
 }

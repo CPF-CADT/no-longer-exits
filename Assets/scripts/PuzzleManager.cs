@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 public class PuzzleManager : MonoBehaviour, ISaveable
 {
@@ -188,5 +189,10 @@ public class PuzzleManager : MonoBehaviour, ISaveable
             if (statueAnimator != null)
                 statueAnimator.SetTrigger("Awaken");
         }
+    }
+
+    public static implicit operator PuzzleManager(PuzzlesManager v)
+    {
+        throw new NotImplementedException();
     }
 }
