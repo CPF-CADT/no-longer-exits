@@ -56,29 +56,29 @@ public class PuzzlesManager : MonoBehaviour
 
     // ================= WIN CHECK =================
 
-public void CheckWin()
-{
-    if (hasWon) return;
-
-    TopSlotUI[] slots = topSlotsParent.GetComponentsInChildren<TopSlotUI>();
-    foreach (var slot in slots)
+    public void CheckWin()
     {
-        if (!slot.isSolved)
-            return;
+        if (hasWon) return;
+
+        TopSlotUI[] slots = topSlotsParent.GetComponentsInChildren<TopSlotUI>();
+        foreach (var slot in slots)
+        {
+            if (!slot.isSolved)
+                return;
+        }
+
+        hasWon = true;
+        Debug.Log("Puzzle Solved!");
+
+        // Spawn items if needed
+        if (!hasSpawned)
+            StartCoroutine(SpawnPuzzleItemsRoutine());
+
+        // --- HIDE PUZZLE CANVAS ---
+        StonePuzzle stonePuzzle = FindObjectOfType<StonePuzzle>();
+        if (stonePuzzle != null)
+            stonePuzzle.OnPuzzleWin();
     }
-
-    hasWon = true;
-    Debug.Log("Puzzle Solved!");
-
-    // Spawn items if needed
-    if (!hasSpawned)
-        StartCoroutine(SpawnPuzzleItemsRoutine());
-
-    // --- HIDE PUZZLE CANVAS ---
-    StonePuzzle stonePuzzle = FindObjectOfType<StonePuzzle>();
-    if (stonePuzzle != null)
-        stonePuzzle.OnPuzzleWin();
-}
 
     // ================= SPAWN ROUTINE =================
 
@@ -115,13 +115,31 @@ public void CheckWin()
         // --- SPAWN STORY ITEM ---
         GameObject storyItem = SpawnPrefab(storyItemPrefab, itemParents[2], itemScales[2]);
 
-        // Inject story image like ChestController
         if (storyItem != null && storyImage != null)
         {
-            ItemReadable readable = storyItem.GetComponent<ItemReadable>();
-            if (readable != null)
-                readable.storyImage = storyImage;
+            ItemPickup pickup = storyItem.GetComponent<ItemPickup>();
+            if (pickup != null)
+            {
+                // Duplicate itemData so we don’t overwrite the prefab
+                ItemData uniqueData = Instantiate(pickup.itemData);
+                uniqueData.storyImage = storyImage;
+                pickup.itemData = uniqueData;
+
+                // Immediately update the UI Image if the prefab has an Image component
+                UnityEngine.UI.Image img = pickup.GetComponent<UnityEngine.UI.Image>();
+                if (img != null)
+                    img.sprite = storyImage;
+            }
+
+            // Reset RectTransform for scroll
+            RectTransform rt = storyItem.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.localScale = Vector3.one;
+                rt.anchoredPosition = Vector2.zero;
+            }
         }
+
 
         hasSpawned = true;
     }

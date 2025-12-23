@@ -113,7 +113,7 @@ public class InventorySystem : MonoBehaviour
     public void AddItem(ItemData item)
     {
         if (item == null) return;
-        
+
         // Safety check if slots are not ready
         if (slots == null) slots = new ItemData[totalSlots];
 
@@ -134,7 +134,7 @@ public class InventorySystem : MonoBehaviour
             {
                 if (item.storyImage != null)
                     ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, false);
-                
+
                 Debug.Log("Scroll already collected, story added to ScrollManager.");
                 return;
             }
@@ -193,22 +193,34 @@ public class InventorySystem : MonoBehaviour
     private void SpawnCurrentSlotModel()
     {
         if (slots == null) return;
+
+        // Check if we have an item and it has a model
         if (holdingNothing || slots[selectedSlot] == null || slots[selectedSlot].model == null) return;
 
+        // Clean up old model
         if (currentHandModel != null) Destroy(currentHandModel);
 
-        currentHandModel = Instantiate(slots[selectedSlot].model, handPosition);
-        currentHandModel.transform.localPosition = slots[selectedSlot].spawnPosition;
-        currentHandModel.transform.localRotation = Quaternion.Euler(slots[selectedSlot].spawnRotation);
-        currentHandModel.transform.localScale = slots[selectedSlot].spawnScale;
+        // Get the data
+        ItemData data = slots[selectedSlot];
 
-        // Remove unnecessary components
+        // Instantiate: 
+        // passing 'false' as the 3rd argument ensures we ignore the prefab's world position
+        // and spawn it relative to the handPosition immediately.
+        currentHandModel = Instantiate(data.model, handPosition, false);
+
+        // --- APPLY TRANSFORMS FROM SCRIPTABLE OBJECT ---
+        currentHandModel.transform.localPosition = data.spawnPosition;
+        currentHandModel.transform.localRotation = Quaternion.Euler(data.spawnRotation);
+        currentHandModel.transform.localScale = data.spawnScale;
+
+        // Remove unnecessary components for the "In Hand" version
         if (currentHandModel.TryGetComponent<ItemPickup>(out var pickup)) Destroy(pickup);
         if (currentHandModel.TryGetComponent<Collider>(out var col)) Destroy(col);
         if (currentHandModel.TryGetComponent<Rigidbody>(out var rb)) Destroy(rb);
 
-        if (currentHandModel.TryGetComponent<ItemReadable>(out var readable) && slots[selectedSlot].storyImage != null)
-            readable.storyImage = slots[selectedSlot].storyImage;
+        // Apply Story Image if readable
+        if (currentHandModel.TryGetComponent<ItemReadable>(out var readable) && data.storyImage != null)
+            readable.storyImage = data.storyImage;
     }
 
     // --- REMOVE ITEM ---
@@ -340,10 +352,10 @@ public class InventorySystem : MonoBehaviour
         // Return the item
         return slots[selectedSlot];
     }
-    
+
     public int GetSelectedSlotIndex() => selectedSlot;
     public bool GetHoldingNothing() => holdingNothing;
-    
+
     public void SwapItems(int indexA, int indexB)
     {
         if (slots == null) return;
@@ -445,9 +457,9 @@ public class InventorySystem : MonoBehaviour
             // 2. Try Fallback (Resource Load) if Database fails
             if (item == null)
             {
-                 // Try simple resources load as fallback
-                 ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
-                 foreach (var it in poolsAny) { if (it != null && it.UniqueID == id) { item = it; break; } }
+                // Try simple resources load as fallback
+                ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
+                foreach (var it in poolsAny) { if (it != null && it.UniqueID == id) { item = it; break; } }
             }
 
             if (item != null)
@@ -468,7 +480,7 @@ public class InventorySystem : MonoBehaviour
 
         if (!holdingNothing)
             SpawnCurrentSlotModel();
-            
+
         Debug.Log("--- LOAD PROCESS FINISHED ---");
     }
 }

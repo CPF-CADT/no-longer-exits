@@ -39,21 +39,19 @@ public class WeaponSocket : MonoBehaviour, ISaveable
         var weaponInHand = inventory.GetCurrentItem() as VishnuWeaponItemData;
         if (weaponInHand == null) return;
 
-        if (currentWeapon != null)
-        {
-            // Take the current weapon back into inventory
-            inventory.AddItem(TakeWeapon());
-        }
-        else
-        {
-            // Place weapon if socket is empty
-            bool placed = TryPlaceWeapon(weaponInHand) != null; // returns previousWeapon
-            if (placed)
-            {
-                inventory.ConsumeCurrentItem(); // remove only if successfully placed
-            }
-        }
+        // Swap current weapon if socket is occupied
+        VishnuWeaponItemData previousWeapon = TakeWeapon();
+        if (previousWeapon != null)
+            inventory.AddItem(previousWeapon);
+
+        // Place the new weapon
+        TryPlaceWeapon(weaponInHand);
+
+        // Remove the weapon from inventory if successfully placed
+        if (currentWeapon == weaponInHand)
+            inventory.ConsumeCurrentItem();
     }
+
 
     public VishnuWeaponItemData TryPlaceWeapon(VishnuWeaponItemData weapon)
     {
@@ -97,23 +95,27 @@ public class WeaponSocket : MonoBehaviour, ISaveable
     {
         if (weapon == null || weapon.model == null) return;
 
+        if (currentWeaponModel != null) Destroy(currentWeaponModel);
+
         currentWeapon = weapon;
         currentWeaponModel = Instantiate(weapon.model, transform);
 
-        // Position: center socket (ignore inventory spawn position)
+        // Position & rotation
         currentWeaponModel.transform.localPosition = Vector3.zero;
-
-        // Rotation & Scale: use weapon prefab values
         currentWeaponModel.transform.localRotation = weapon.model.transform.localRotation;
         currentWeaponModel.transform.localScale = weapon.model.transform.localScale;
 
-        // Remove pickup/collider/rigidbody so it behaves as a static display
-        if (currentWeaponModel.TryGetComponent<ItemPickup>(out var pickup)) Destroy(pickup);
-        if (currentWeaponModel.TryGetComponent<Collider>(out var col)) Destroy(col);
-        if (currentWeaponModel.TryGetComponent<Rigidbody>(out var rb)) Destroy(rb);
+        // Remove pickup/collider/rigidbody from all children
+        foreach (var pickup in currentWeaponModel.GetComponentsInChildren<ItemPickup>())
+            Destroy(pickup);
+        foreach (var col in currentWeaponModel.GetComponentsInChildren<Collider>())
+            Destroy(col);
+        foreach (var rb in currentWeaponModel.GetComponentsInChildren<Rigidbody>())
+            Destroy(rb);
 
         currentWeaponModel.SetActive(true);
     }
+
 
 
     // -------------------- ISaveable --------------------
