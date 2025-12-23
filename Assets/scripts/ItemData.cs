@@ -20,31 +20,60 @@ public class ItemData : ScriptableObject
 
     [Header("Item Settings")]
     public bool isConsumable;
-    public Sprite storyImage;   // Assign ONLY for story item
+    [Tooltip("Assign ONLY for story / scroll items")]
+    public Sprite storyImage;
 
-    [Header("System")]
-    public string uniqueID;
+    [Header("System (DO NOT CHANGE AFTER RELEASE)")]
+    [SerializeField] public string UniqueID;
 
+    // --------------------------------------------------
+    // ID SAFETY
+    // --------------------------------------------------
+
+    private void OnEnable()
+    {
+        // Runtime safety (build + editor)
+        EnsureID();
+    }
+
+#if UNITY_EDITOR
     private void OnValidate()
     {
-        if (string.IsNullOrEmpty(uniqueID))
+        // Editor safety
+        EnsureID();
+    }
+#endif
+
+    private void EnsureID()
+    {
+        if (string.IsNullOrEmpty(UniqueID))
         {
-            uniqueID = Guid.NewGuid().ToString();
-            SetDirty();
+            UniqueID = Guid.NewGuid().ToString();
+            MarkDirty();
         }
     }
 
-    [ContextMenu("Generate New ID")]
+#if UNITY_EDITOR
+    [ContextMenu("⚠ Generate NEW ID (BREAKS SAVES)")]
     private void GenerateNewID()
     {
-        uniqueID = Guid.NewGuid().ToString();
-        SetDirty();
-    }
+        if (!EditorUtility.DisplayDialog(
+            "Generate New ID?",
+            "This will BREAK all existing save files using this item.\n\nAre you sure?",
+            "Yes, Break Saves",
+            "Cancel"))
+            return;
 
-    private void SetDirty()
+        UniqueID = Guid.NewGuid().ToString();
+        MarkDirty();
+    }
+#endif
+
+    private void MarkDirty()
     {
 #if UNITY_EDITOR
         EditorUtility.SetDirty(this);
+        AssetDatabase.SaveAssets();
 #endif
     }
 }

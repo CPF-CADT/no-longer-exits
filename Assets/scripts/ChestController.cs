@@ -66,7 +66,7 @@ public class ChestController : MonoBehaviour, ISaveable
         // --- LOCK CHECK ---
         if (requiredKey != null)
         {
-            if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
+            if (itemInHand == null || itemInHand.UniqueID != requiredKey.UniqueID)
             {
                 ShowLockMessage();
                 return;

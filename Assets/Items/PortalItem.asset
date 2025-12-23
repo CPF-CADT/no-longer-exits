@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1ed6c619c528b544baf26864333a24d, type: 3}
+  m_Name: PortalItem
+  m_EditorClassIdentifier: 
+  itemName: portalPuzzle
+  icon: {fileID: 21300000, guid: ed4958b1d94b3a74c894935a1d1a8c42, type: 3}
+  model: {fileID: 4204207642889931100, guid: cadce09f98d26a940af5eb412b1816bd, type: 3}
+  spawnPosition: {x: 0.006, y: 1.378, z: 0.961}
+  spawnRotation: {x: -1.487, y: -187.46, z: 78.797}
+  spawnScale: {x: 0.5, y: 0.02, z: 0.5}
+  isConsumable: 0
+  storyImage: {fileID: 0}
+  UniqueID: 0fc04540-1860-4dd3-96ac-647fdde4aac5

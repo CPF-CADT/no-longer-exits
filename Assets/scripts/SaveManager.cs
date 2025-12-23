@@ -11,198 +11,269 @@ public class SaveManager : MonoBehaviour
     public static SaveManager Instance;
 
     private string savePath;
-
-    // We store the data temporarily here while the scene reloads
+    
+    // Data held while scene reloads
     private SaveData pendingLoadData;
 
     [SerializeField] private GameObject player;
     public bool autoLoadOnStart = true;
+
     public UnityEvent OnSaveCompleted;
     public UnityEvent OnLoadCompleted;
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject); // MUST persist between scene loads
-        }
-        else
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
+            return;
         }
 
-        savePath = Application.persistentDataPath + "/horrorsave.json";
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        savePath = Path.Combine(Application.persistentDataPath, "horrorsave.json");
     }
 
     private void Start()
     {
-        // If we just started the game app, try to auto-load
         if (autoLoadOnStart && File.Exists(savePath))
         {
-            // We don't need to reload the scene here because the app just started
-            // But we do need the delay for Unity to initialize
             StartCoroutine(InitialLoadRoutine());
         }
     }
 
     private IEnumerator InitialLoadRoutine()
     {
-        yield return new WaitForSeconds(0.1f);
-        LoadDataInternal(); // Just load the data, scene is already fresh
+        // WAIT for InventorySystem + ItemDatabase to exist
+        yield return new WaitUntil(() => InventorySystem.Instance != null);
+        yield return null;
+
+        LoadDataInternal();
     }
 
+    // -------------------- SAVE DATA CLASS --------------------
     [System.Serializable]
     public class SaveData
     {
         public float[] position;
         public float[] rotation;
+
+        // Inventory
         public InventorySystem.InventorySlotSave[] inventory;
         public int selectedSlot;
         public bool holdingEmpty;
+
+        // Missions (NEW)
+        public int missionIndex;
+
+        // World Objects
         public List<SaveObjectState> objectStates;
     }
 
+    // -------------------- SAVE --------------------
     public void SaveGame()
     {
-        if (player == null) player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
+        if (player == null)
+            player = GameObject.FindGameObjectWithTag("Player");
+
+        if (player == null)
+        {
+            Debug.LogError("Save failed: Player not found");
+            return;
+        }
 
         SaveData data = new SaveData
         {
-            position = new float[] { player.transform.position.x, player.transform.position.y, player.transform.position.z },
-            rotation = new float[] { player.transform.eulerAngles.x, player.transform.eulerAngles.y, player.transform.eulerAngles.z },
-            inventory = InventorySystem.Instance != null ? InventorySystem.Instance.GetSaveInventory() : new InventorySystem.InventorySlotSave[0],
-            selectedSlot = InventorySystem.Instance != null ? InventorySystem.Instance.GetSelectedSlotIndex() : 0,
-            holdingEmpty = InventorySystem.Instance == null || InventorySystem.Instance.GetHoldingNothing(),
+            // 1. Save Player Transform
+            position = new float[]
+            {
+                player.transform.position.x,
+                player.transform.position.y,
+                player.transform.position.z
+            },
+            rotation = new float[]
+            {
+                player.transform.eulerAngles.x,
+                player.transform.eulerAngles.y,
+                player.transform.eulerAngles.z
+            },
+
+            // 2. Save Inventory
+            inventory = InventorySystem.Instance != null
+                ? InventorySystem.Instance.GetSaveInventory()
+                : new InventorySystem.InventorySlotSave[0],
+
+            selectedSlot = InventorySystem.Instance != null
+                ? InventorySystem.Instance.GetSelectedSlotIndex()
+                : 0,
+
+            holdingEmpty = InventorySystem.Instance == null
+                || InventorySystem.Instance.GetHoldingNothing(),
+
+            // 3. Save Mission (NEW)
+            missionIndex = MissionManager.Instance != null 
+                ? MissionManager.Instance.GetMissionIndex() 
+                : 0,
+
+            // 4. Save World Objects (Doors, Chests, etc.)
             objectStates = CaptureEnvironmentStates()
         };
 
-        string json = JsonUtility.ToJson(data, true);
-        File.WriteAllText(savePath, json);
+        File.WriteAllText(savePath, JsonUtility.ToJson(data, true));
 
         OnSaveCompleted?.Invoke();
-        Debug.Log($"Game saved to: {savePath}");
+        Debug.Log("SAVE OK → " + savePath);
     }
 
-    // --- MAIN LOAD FUNCTION ---
-    public void RespawnPlayer(Transform defaultSpawn = null)
+    // -------------------- LOAD (SCENE REFRESH SAFE) --------------------
+    public void RespawnPlayer()
     {
         if (!File.Exists(savePath))
         {
-            Debug.Log("No save found. Restarting scene fresh.");
+            Debug.Log("No save found. Reloading fresh scene.");
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             return;
         }
 
-        // 1. Read the file FIRST to make sure it's valid
-        try
-        {
-            string json = File.ReadAllText(savePath);
-            pendingLoadData = JsonUtility.FromJson<SaveData>(json);
+        // Prevent double subscription (IMPORTANT)
+        SceneManager.sceneLoaded -= OnSceneLoaded;
 
-            // 2. Subscribe to the scene load event
-            SceneManager.sceneLoaded += OnSceneLoadedForLoad;
+        string json = File.ReadAllText(savePath);
+        pendingLoadData = JsonUtility.FromJson<SaveData>(json);
 
-            // 3. Reload the Scene (This cleans the "Dirty" state)
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogError("Save file corrupted: " + ex.Message);
-        }
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    // This runs automatically AFTER the scene finishes reloading
-    private void OnSceneLoadedForLoad(Scene scene, LoadSceneMode mode)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Unsubscribe immediately so it doesn't happen again
-        SceneManager.sceneLoaded -= OnSceneLoadedForLoad;
-
-        // Now apply the data to the fresh scene
-        if (pendingLoadData != null)
-        {
-            ApplyLoadData(pendingLoadData);
-            pendingLoadData = null; // Clear it
-        }
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        StartCoroutine(ApplyLoadDelayed());
     }
 
-    // Re-used function for loading data without reloading scene (for Start())
+    private IEnumerator ApplyLoadDelayed()
+    {
+        // Wait until InventorySystem exists
+        yield return new WaitUntil(() => InventorySystem.Instance != null);
+        yield return null; // allow ItemDatabase.OnEnable()
+
+        ApplyLoadData(pendingLoadData);
+        pendingLoadData = null;
+    }
+
+    // Used for app startup (no scene reload)
     private void LoadDataInternal()
     {
-        if (File.Exists(savePath))
-        {
-            string json = File.ReadAllText(savePath);
-            SaveData data = JsonUtility.FromJson<SaveData>(json);
-            ApplyLoadData(data);
-        }
+        string json = File.ReadAllText(savePath);
+        SaveData data = JsonUtility.FromJson<SaveData>(json);
+        StartCoroutine(ApplyLoadDelayedInternal(data));
     }
 
+    private IEnumerator ApplyLoadDelayedInternal(SaveData data)
+    {
+        yield return new WaitUntil(() => InventorySystem.Instance != null);
+        yield return null;
+        ApplyLoadData(data);
+    }
+
+    // -------------------- APPLY DATA --------------------
     private void ApplyLoadData(SaveData data)
     {
+        // 1. Load Player
         player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
             CharacterController cc = player.GetComponent<CharacterController>();
-            if (cc != null) cc.enabled = false;
+            if (cc) cc.enabled = false;
 
-            player.transform.position = new Vector3(data.position[0], data.position[1], data.position[2]);
-            player.transform.rotation = Quaternion.Euler(data.rotation[0], data.rotation[1], data.rotation[2]);
+            player.transform.position = new Vector3(
+                data.position[0],
+                data.position[1],
+                data.position[2]
+            );
 
-            if (cc != null) cc.enabled = true;
+            player.transform.rotation = Quaternion.Euler(
+                data.rotation[0],
+                data.rotation[1],
+                data.rotation[2]
+            );
+
+            if (cc) cc.enabled = true;
             Physics.SyncTransforms();
         }
 
+        // 2. Load Inventory
         if (InventorySystem.Instance != null)
-            InventorySystem.Instance.LoadInventoryFromSave(data.inventory, data.selectedSlot, data.holdingEmpty);
+        {
+            InventorySystem.Instance.LoadInventoryFromSave(
+                data.inventory,
+                data.selectedSlot,
+                data.holdingEmpty
+            );
+        }
 
+        // 3. Load Missions (NEW)
+        if (MissionManager.Instance != null)
+        {
+            MissionManager.Instance.LoadMissionProgress(data.missionIndex);
+        }
+
+        // 4. Load World Objects
         if (data.objectStates != null)
             RestoreEnvironmentStates(data.objectStates);
 
         OnLoadCompleted?.Invoke();
-        Debug.Log("Game loaded successfully (Scene Refreshed)!");
+        Debug.Log("LOAD OK → Game fully restored");
     }
 
-    // -------------------- Environment Save/Load --------------------
+    // -------------------- ENVIRONMENT HELPERS --------------------
     private List<ISaveable> GetSaveables()
     {
-        return FindObjectsOfType<MonoBehaviour>(true).OfType<ISaveable>().ToList();
+        return FindObjectsOfType<MonoBehaviour>(true)
+            .OfType<ISaveable>()
+            .ToList();
     }
 
     private List<SaveObjectState> CaptureEnvironmentStates()
     {
         var list = new List<SaveObjectState>();
+
         foreach (var s in GetSaveables())
         {
             var state = s.CaptureState();
             if (state != null && !string.IsNullOrEmpty(state.id))
                 list.Add(state);
         }
+
         return list;
     }
 
     private void RestoreEnvironmentStates(List<SaveObjectState> states)
     {
-        var stateDict = new Dictionary<string, SaveObjectState>();
+        var dict = new Dictionary<string, SaveObjectState>();
+
         foreach (var s in states)
         {
-            if (!string.IsNullOrEmpty(s.id) && !stateDict.ContainsKey(s.id))
-                stateDict.Add(s.id, s);
+            if (!string.IsNullOrEmpty(s.id) && !dict.ContainsKey(s.id))
+                dict.Add(s.id, s);
         }
 
-        foreach (var saveableObj in GetSaveables())
+        foreach (var obj in GetSaveables())
         {
-            string id = saveableObj.GetUniqueID();
-            if (!string.IsNullOrEmpty(id) && stateDict.TryGetValue(id, out var savedState))
-            {
-                saveableObj.RestoreState(savedState);
-            }
+            string id = obj.GetUniqueID();
+            if (!string.IsNullOrEmpty(id) && dict.TryGetValue(id, out var state))
+                obj.RestoreState(state);
         }
     }
 
+    // -------------------- DELETE --------------------
     public void DeleteSave(bool reloadScene = false)
     {
-        if (File.Exists(savePath)) File.Delete(savePath);
-        if (reloadScene) SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        if (File.Exists(savePath))
+            File.Delete(savePath);
+
+        if (reloadScene)
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

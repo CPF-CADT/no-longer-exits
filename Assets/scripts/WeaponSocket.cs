@@ -128,7 +128,7 @@ public class WeaponSocket : MonoBehaviour, ISaveable
         {
             id = GetUniqueID(),
             type = "WeaponSocket",
-            socketWeaponID = currentWeapon != null ? currentWeapon.uniqueID : null,
+            socketWeaponID = currentWeapon != null ? currentWeapon.UniqueID : null,
             socketWeaponName = currentWeapon != null ? (!string.IsNullOrEmpty(currentWeapon.itemName) ? currentWeapon.itemName : currentWeapon.name) : null
         };
     }
@@ -139,14 +139,14 @@ public class WeaponSocket : MonoBehaviour, ISaveable
 
         if (!string.IsNullOrEmpty(state.socketWeaponID))
         {
-            if (currentWeapon != null && currentWeapon.uniqueID != state.socketWeaponID)
+            if (currentWeapon != null && currentWeapon.UniqueID != state.socketWeaponID)
             {
                 if (currentWeaponModel != null) Destroy(currentWeaponModel);
                 currentWeapon = null;
                 currentWeaponModel = null;
             }
 
-            if (currentWeapon != null && currentWeapon.uniqueID == state.socketWeaponID)
+            if (currentWeapon != null && currentWeapon.UniqueID == state.socketWeaponID)
             {
                 if (currentWeaponModel == null) SpawnModel(currentWeapon);
             }
@@ -205,7 +205,7 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                     for (int r = 0; r < reg.items.Length; r++)
                     {
                         var it = reg.items[r];
-                        if (it != null && it.uniqueID == uniqueId) { item = it; break; }
+                        if (it != null && it.UniqueID == uniqueId) { item = it; break; }
                     }
                 }
             }
@@ -216,13 +216,13 @@ public class WeaponSocket : MonoBehaviour, ISaveable
                 ItemData[] poolsA = Resources.LoadAll<ItemData>("Items");
                 if (item == null && poolsA != null)
                 {
-                    foreach (var it in poolsA) { if (it != null && it.uniqueID == uniqueId) { item = it; break; } }
+                    foreach (var it in poolsA) { if (it != null && it.UniqueID == uniqueId) { item = it; break; } }
                 }
 
                 if (item == null)
                 {
                     ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
-                    foreach (var it in poolsAny) { if (it != null && it.uniqueID == uniqueId) { item = it; break; } }
+                    foreach (var it in poolsAny) { if (it != null && it.UniqueID == uniqueId) { item = it; break; } }
                 }
             }
         }

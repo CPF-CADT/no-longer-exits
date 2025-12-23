@@ -199,7 +199,7 @@ public class ScrollManager : MonoBehaviour
     public void EnqueueItemStory(ItemData item, bool autoOpenIfFirst = true)
     {
         if (item == null || item.storyImage == null) return;
-        string id = item.uniqueID;
+        string id = item.UniqueID;
         bool wasEmpty = stories.Count == 0;
 
         // Deduplicate by ID if available; else by sprite reference
@@ -311,13 +311,13 @@ public class ScrollManager : MonoBehaviour
             for (int r = 0; r < reg.items.Length; r++)
             {
                 var it = reg.items[r];
-                if (it != null && it.uniqueID == id) return it;
+                if (it != null && it.UniqueID == id) return it;
             }
         }
 
         // 3b) Fallback scan all ItemData in Resources
         ItemData[] poolsAny = Resources.LoadAll<ItemData>("");
-        for (int i = 0; i < poolsAny.Length; i++) { var it = poolsAny[i]; if (it != null && it.uniqueID == id) return it; }
+        for (int i = 0; i < poolsAny.Length; i++) { var it = poolsAny[i]; if (it != null && it.UniqueID == id) return it; }
         return null;
     }
 }

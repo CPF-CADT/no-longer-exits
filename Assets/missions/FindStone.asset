@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: FindStone
+  m_EditorClassIdentifier: Assembly-CSharp::MissionData
+  missionName: FindStone
+  description: In chest in side house
+  requirements:
+  - requiredItem: {fileID: 11400000, guid: 71ad208df4ac7b2469fb6061991f2522, type: 2}
+    requiredAmount: 4
+  rewardItem: {fileID: 11400000, guid: 2d23643d96e26a84e8f28af49aef42d7, type: 2}

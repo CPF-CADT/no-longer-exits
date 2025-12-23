@@ -6,34 +6,45 @@ public class ItemDatabase : ScriptableObject
 {
     public ItemData[] allItems;
 
+    // The Dictionary is not serialized, so it becomes null on reload
     private Dictionary<string, ItemData> itemDict;
 
-    private void OnEnable()
+    public void Init()
     {
+        // --- FIX: Check if the Dictionary is null, not just a boolean flag ---
+        if (itemDict != null && itemDict.Count > 0) return;
+
         itemDict = new Dictionary<string, ItemData>();
+
         foreach (var item in allItems)
         {
             if (item == null) continue;
 
-            if (string.IsNullOrEmpty(item.uniqueID))
+            if (string.IsNullOrEmpty(item.UniqueID))
             {
-                Debug.LogWarning($"ItemDatabase: Item '{item.name}' has empty uniqueID and will be skipped. Assign a manual ID.");
+                Debug.LogError($"Item '{item.name}' has EMPTY uniqueID");
                 continue;
             }
 
-            if (itemDict.ContainsKey(item.uniqueID))
+            if (itemDict.ContainsKey(item.UniqueID))
             {
-                Debug.LogWarning($"ItemDatabase: Duplicate uniqueID '{item.uniqueID}' found for item '{item.name}'. Only the first will be used.");
+                Debug.LogError($"DUPLICATE uniqueID: {item.UniqueID}");
                 continue;
             }
 
-            itemDict.Add(item.uniqueID, item);
+            itemDict.Add(item.UniqueID, item);
         }
     }
 
     public ItemData GetItemByID(string id)
     {
+        Init(); // Ensure we are initialized
+
         if (string.IsNullOrEmpty(id)) return null;
+        
+        // Safety Check
+        if (itemDict == null) return null;
+
         itemDict.TryGetValue(id, out ItemData item);
         return item;
     }

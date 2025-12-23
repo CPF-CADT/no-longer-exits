@@ -314,15 +314,14 @@ public class NPCRoaming : MonoBehaviour
         if (GhostCameraController.Instance != null)
             GhostCameraController.Instance.ResetCamera();
 
+        // RELOAD LAST SAVE AND STOP EVERYTHING
         if (SaveManager.Instance != null)
-            SaveManager.Instance.RespawnPlayer(defaultSpawnPoint);
-
-        yield return new WaitForSeconds(0.1f);
-
-        MoveGhostToDifferentWaypoint(minWaypointDistanceFromPlayer);
-        ResetGhostState();
-        TogglePlayerControls(true);
+        {
+            SaveManager.Instance.RespawnPlayer();
+            yield break; // 🔴 CRITICAL: stop coroutine here
+        }
     }
+
 
 
     private void ResetGhostState()

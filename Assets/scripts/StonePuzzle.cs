@@ -34,7 +34,7 @@ public class StonePuzzle : MonoBehaviour
         int count = 0;
         for (int i = 0; i < slots.Length; i++)
         {
-            if (slots[i] != null && slots[i].itemUniqueID == stoneItem.uniqueID)
+            if (slots[i] != null && slots[i].itemUniqueID == stoneItem.UniqueID)
                 count++;
         }
 
@@ -44,7 +44,7 @@ public class StonePuzzle : MonoBehaviour
             int removed = 0;
             for (int i = 0; i < slots.Length && removed < requiredStones; i++)
             {
-                if (slots[i] != null && slots[i].itemUniqueID == stoneItem.uniqueID)
+                if (slots[i] != null && slots[i].itemUniqueID == stoneItem.UniqueID)
                 {
                     inventory.SelectSlot(i);         // Set current slot
                     inventory.RemoveCurrentItem();  // Remove it

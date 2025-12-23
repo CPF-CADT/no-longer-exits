@@ -70,7 +70,7 @@ public class DoorController : MonoBehaviour, ISaveable
         // --- KEY CHECK ---
         if (requiredKey != null)
         {
-            if (itemInHand == null || itemInHand.uniqueID != requiredKey.uniqueID)
+            if (itemInHand == null || itemInHand.UniqueID != requiredKey.UniqueID)
             {
                 ShowLockMessage();
                 return;

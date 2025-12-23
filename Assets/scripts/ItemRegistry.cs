@@ -37,7 +37,7 @@ public class ItemRegistry : MonoBehaviour
         {
             if (items[i] == null) continue;
 
-            if (items[i].uniqueID == id) return items[i];
+            if (items[i].UniqueID == id) return items[i];
         }
 
         return null;
