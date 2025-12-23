@@ -9,10 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 0c524efbf54840540b33b769aee3e475, type: 3}
   m_Name: Monk
   m_EditorClassIdentifier: Assembly-CSharp::MissionData
-  missionName: Monk
+  missionName: The Wakeup
   description: Meet Monk
   requirements:
   - requiredItem: {fileID: 11400000, guid: 2f88f21aef57a074293be5ee73a53203, type: 2}

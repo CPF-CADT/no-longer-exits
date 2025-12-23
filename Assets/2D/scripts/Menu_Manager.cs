@@ -1,27 +1,37 @@
-using System.Collections;
-using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class MenuManager : MonoBehaviour
-{
-    public GameObject mainMenuPanel;
-    public GameObject loadGamePanel;
+{    public string quickSave = "quick.json";
 
-    void Start()
+    public void LoadGame()
     {
-        mainMenuPanel.SetActive(true);
-        loadGamePanel.SetActive(false);
+        GameData.ShouldLoadSave = true; // tell Game scene to load save
+        SceneManager.LoadScene("Game");
     }
 
-    public void OpenLoadGame()
+    public void StartNewGame()
     {
-        mainMenuPanel.SetActive(false);
-        loadGamePanel.SetActive(true);
+        GameData.ShouldLoadSave = false; // start fresh
+        SceneManager.LoadScene("Game");
     }
 
-    public void BackToMainMenu()
+
+    public void QuickGame()
     {
-        loadGamePanel.SetActive(false);
-        mainMenuPanel.SetActive(true);
+        string path = Path.Combine(Application.persistentDataPath, quickSave);
+
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+            Debug.Log($"[SaveManager] Deleted save file: {path}");
+        }
+        else
+        {
+            Debug.Log("[SaveManager] No quick save found to delete.");
+        }
+        
+        SceneManager.LoadScene("Quick");
     }
 }

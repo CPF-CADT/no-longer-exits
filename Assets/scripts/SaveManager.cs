@@ -5,16 +5,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using System.Linq;
+using System;
 
 public class SaveManager : MonoBehaviour
 {
     public static SaveManager Instance;
 
     private string savePath;
-    
-    // Data held while scene reloads
-    private SaveData pendingLoadData;
 
+    private SaveData pendingLoadData;
+    public String saveFileName;
     [SerializeField] private GameObject player;
     public bool autoLoadOnStart = true;
 
@@ -32,12 +32,12 @@ public class SaveManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        savePath = Path.Combine(Application.persistentDataPath, "horrorsave.json");
+        savePath = Path.Combine(Application.persistentDataPath, saveFileName);
     }
 
     private void Start()
     {
-        if (autoLoadOnStart && File.Exists(savePath))
+        if (GameData.ShouldLoadSave && File.Exists(savePath))
         {
             StartCoroutine(InitialLoadRoutine());
         }
@@ -45,33 +45,31 @@ public class SaveManager : MonoBehaviour
 
     private IEnumerator InitialLoadRoutine()
     {
-        // WAIT for InventorySystem + ItemDatabase to exist
+        // Wait until InventorySystem exists
         yield return new WaitUntil(() => InventorySystem.Instance != null);
+
+        // Wait until Player exists
+        yield return new WaitUntil(() => GameObject.FindGameObjectWithTag("Player") != null);
+
+        // Extra frame to ensure all Awake/Start finished
         yield return null;
 
         LoadDataInternal();
     }
 
-    // -------------------- SAVE DATA CLASS --------------------
     [System.Serializable]
     public class SaveData
     {
         public float[] position;
         public float[] rotation;
-
-        // Inventory
         public InventorySystem.InventorySlotSave[] inventory;
         public int selectedSlot;
         public bool holdingEmpty;
-
-        // Missions (NEW)
         public int missionIndex;
-
-        // World Objects
         public List<SaveObjectState> objectStates;
     }
 
-    // -------------------- SAVE --------------------
+    // ---------------- SAVE ----------------
     public void SaveGame()
     {
         if (player == null)
@@ -85,48 +83,21 @@ public class SaveManager : MonoBehaviour
 
         SaveData data = new SaveData
         {
-            // 1. Save Player Transform
-            position = new float[]
-            {
-                player.transform.position.x,
-                player.transform.position.y,
-                player.transform.position.z
-            },
-            rotation = new float[]
-            {
-                player.transform.eulerAngles.x,
-                player.transform.eulerAngles.y,
-                player.transform.eulerAngles.z
-            },
-
-            // 2. Save Inventory
-            inventory = InventorySystem.Instance != null
-                ? InventorySystem.Instance.GetSaveInventory()
-                : new InventorySystem.InventorySlotSave[0],
-
-            selectedSlot = InventorySystem.Instance != null
-                ? InventorySystem.Instance.GetSelectedSlotIndex()
-                : 0,
-
-            holdingEmpty = InventorySystem.Instance == null
-                || InventorySystem.Instance.GetHoldingNothing(),
-
-            // 3. Save Mission (NEW)
-            missionIndex = MissionManager.Instance != null 
-                ? MissionManager.Instance.GetMissionIndex() 
-                : 0,
-
-            // 4. Save World Objects (Doors, Chests, etc.)
+            position = new float[] { player.transform.position.x, player.transform.position.y, player.transform.position.z },
+            rotation = new float[] { player.transform.eulerAngles.x, player.transform.eulerAngles.y, player.transform.eulerAngles.z },
+            inventory = InventorySystem.Instance != null ? InventorySystem.Instance.GetSaveInventory() : new InventorySystem.InventorySlotSave[0],
+            selectedSlot = InventorySystem.Instance != null ? InventorySystem.Instance.GetSelectedSlotIndex() : 0,
+            holdingEmpty = InventorySystem.Instance == null || InventorySystem.Instance.GetHoldingNothing(),
+            missionIndex = MissionManager.Instance != null ? MissionManager.Instance.GetMissionIndex() : 0,
             objectStates = CaptureEnvironmentStates()
         };
 
         File.WriteAllText(savePath, JsonUtility.ToJson(data, true));
-
         OnSaveCompleted?.Invoke();
         Debug.Log("SAVE OK → " + savePath);
     }
 
-    // -------------------- LOAD (SCENE REFRESH SAFE) --------------------
+    // ---------------- LOAD ----------------
     public void RespawnPlayer()
     {
         if (!File.Exists(savePath))
@@ -136,12 +107,9 @@ public class SaveManager : MonoBehaviour
             return;
         }
 
-        // Prevent double subscription (IMPORTANT)
+        pendingLoadData = JsonUtility.FromJson<SaveData>(File.ReadAllText(savePath));
+
         SceneManager.sceneLoaded -= OnSceneLoaded;
-
-        string json = File.ReadAllText(savePath);
-        pendingLoadData = JsonUtility.FromJson<SaveData>(json);
-
         SceneManager.sceneLoaded += OnSceneLoaded;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
@@ -154,15 +122,14 @@ public class SaveManager : MonoBehaviour
 
     private IEnumerator ApplyLoadDelayed()
     {
-        // Wait until InventorySystem exists
         yield return new WaitUntil(() => InventorySystem.Instance != null);
-        yield return null; // allow ItemDatabase.OnEnable()
+        yield return new WaitUntil(() => GameObject.FindGameObjectWithTag("Player") != null);
+        yield return null;
 
         ApplyLoadData(pendingLoadData);
         pendingLoadData = null;
     }
 
-    // Used for app startup (no scene reload)
     private void LoadDataInternal()
     {
         string json = File.ReadAllText(savePath);
@@ -173,53 +140,37 @@ public class SaveManager : MonoBehaviour
     private IEnumerator ApplyLoadDelayedInternal(SaveData data)
     {
         yield return new WaitUntil(() => InventorySystem.Instance != null);
+        yield return new WaitUntil(() => GameObject.FindGameObjectWithTag("Player") != null);
         yield return null;
+
         ApplyLoadData(data);
     }
 
-    // -------------------- APPLY DATA --------------------
     private void ApplyLoadData(SaveData data)
     {
-        // 1. Load Player
         player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
             CharacterController cc = player.GetComponent<CharacterController>();
             if (cc) cc.enabled = false;
 
-            player.transform.position = new Vector3(
-                data.position[0],
-                data.position[1],
-                data.position[2]
-            );
-
-            player.transform.rotation = Quaternion.Euler(
-                data.rotation[0],
-                data.rotation[1],
-                data.rotation[2]
-            );
+            player.transform.position = new Vector3(data.position[0], data.position[1], data.position[2]);
+            player.transform.rotation = Quaternion.Euler(data.rotation[0], data.rotation[1], data.rotation[2]);
 
             if (cc) cc.enabled = true;
             Physics.SyncTransforms();
         }
 
-        // 2. Load Inventory
         if (InventorySystem.Instance != null)
         {
-            InventorySystem.Instance.LoadInventoryFromSave(
-                data.inventory,
-                data.selectedSlot,
-                data.holdingEmpty
-            );
+            InventorySystem.Instance.LoadInventoryFromSave(data.inventory, data.selectedSlot, data.holdingEmpty);
         }
 
-        // 3. Load Missions (NEW)
         if (MissionManager.Instance != null)
         {
             MissionManager.Instance.LoadMissionProgress(data.missionIndex);
         }
 
-        // 4. Load World Objects
         if (data.objectStates != null)
             RestoreEnvironmentStates(data.objectStates);
 
@@ -227,37 +178,30 @@ public class SaveManager : MonoBehaviour
         Debug.Log("LOAD OK → Game fully restored");
     }
 
-    // -------------------- ENVIRONMENT HELPERS --------------------
+    // ---------------- ENVIRONMENT ----------------
     private List<ISaveable> GetSaveables()
     {
-        return FindObjectsOfType<MonoBehaviour>(true)
-            .OfType<ISaveable>()
-            .ToList();
+        return FindObjectsOfType<MonoBehaviour>(true).OfType<ISaveable>().ToList();
     }
 
     private List<SaveObjectState> CaptureEnvironmentStates()
     {
         var list = new List<SaveObjectState>();
-
         foreach (var s in GetSaveables())
         {
             var state = s.CaptureState();
             if (state != null && !string.IsNullOrEmpty(state.id))
                 list.Add(state);
         }
-
         return list;
     }
 
     private void RestoreEnvironmentStates(List<SaveObjectState> states)
     {
         var dict = new Dictionary<string, SaveObjectState>();
-
         foreach (var s in states)
-        {
             if (!string.IsNullOrEmpty(s.id) && !dict.ContainsKey(s.id))
                 dict.Add(s.id, s);
-        }
 
         foreach (var obj in GetSaveables())
         {
@@ -267,7 +211,7 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    // -------------------- DELETE --------------------
+    // ---------------- DELETE ----------------
     public void DeleteSave(bool reloadScene = false)
     {
         if (File.Exists(savePath))

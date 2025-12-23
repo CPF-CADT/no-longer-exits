@@ -32,14 +32,39 @@ public class WeaponSocket : MonoBehaviour, ISaveable
         }
     }
 
+    // ---------------------------------------------------------
+    // UPDATED INTERACT METHOD
+    // ---------------------------------------------------------
     public void Interact(InventorySystem inventory)
     {
         if (inventory == null) return;
 
-        var weaponInHand = inventory.GetCurrentItem() as VishnuWeaponItemData;
+        // 1. Check what is currently in the player's hand
+        var currentItem = inventory.GetCurrentItem();
+        var weaponInHand = currentItem as VishnuWeaponItemData;
+
+        // 2. RETRIEVE LOGIC: 
+        // If the socket has an item, AND (hand is empty OR holding an item that isn't a Vishnu weapon)
+        if (isOccupied && weaponInHand == null)
+        {
+            VishnuWeaponItemData retrievedWeapon = TakeWeapon();
+
+            // Add back to inventory
+            if (retrievedWeapon != null)
+            {
+                inventory.AddItem(retrievedWeapon);
+                Debug.Log($"Picked up {retrievedWeapon.itemName} from socket.");
+            }
+            return; // Stop here, we are done interacting
+        }
+
+        // 3. If hand is empty and socket is empty, do nothing
         if (weaponInHand == null) return;
 
-        // Swap current weapon if socket is occupied
+        // 4. PLACEMENT / SWAP LOGIC:
+        // We have a weapon in hand, so we proceed to place or swap.
+
+        // Swap current weapon if socket is occupied (take old one out first)
         VishnuWeaponItemData previousWeapon = TakeWeapon();
         if (previousWeapon != null)
             inventory.AddItem(previousWeapon);
@@ -51,7 +76,7 @@ public class WeaponSocket : MonoBehaviour, ISaveable
         if (currentWeapon == weaponInHand)
             inventory.ConsumeCurrentItem();
     }
-
+    // ---------------------------------------------------------
 
     public VishnuWeaponItemData TryPlaceWeapon(VishnuWeaponItemData weapon)
     {
@@ -93,7 +118,7 @@ public class WeaponSocket : MonoBehaviour, ISaveable
     // --- HELPER FUNCTION FOR SPAWNING ---
     private void SpawnModel(VishnuWeaponItemData weapon)
     {
-        if (weapon == null || weapon.model == null) return;
+        if (weapon == null) return;
 
         if (currentWeaponModel != null) Destroy(currentWeaponModel);
 

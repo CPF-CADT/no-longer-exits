@@ -9,12 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 0c524efbf54840540b33b769aee3e475, type: 3}
   m_Name: FindStone
   m_EditorClassIdentifier: Assembly-CSharp::MissionData
-  missionName: FindStone
-  description: In chest in side house
-  requirements:
-  - requiredItem: {fileID: 11400000, guid: 71ad208df4ac7b2469fb6061991f2522, type: 2}
-    requiredAmount: 4
-  rewardItem: {fileID: 11400000, guid: 2d23643d96e26a84e8f28af49aef42d7, type: 2}
+  missionName: The Temple
+  description: Find puzzle stone
+  requirements: []
+  rewardItem: {fileID: 0}

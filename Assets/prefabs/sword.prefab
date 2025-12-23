@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: d08373f89170d77448e5aa70b57a948a, type: 3}
       propertyPath: m_Name
-      value: MACE_V2b
+      value: sword
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -87,7 +87,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.19265556, y: 0.9488627, z: 0.2769394}
+  m_Size: {x: 0.19265556, y: 1, z: 0.2769394}
   m_Center: {x: -0.0059041977, y: 0.47951883, z: -0.0016098022}
 --- !u!114 &378557604159840810
 MonoBehaviour:

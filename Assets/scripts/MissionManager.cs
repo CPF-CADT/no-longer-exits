@@ -8,12 +8,12 @@ public class MissionManager : MonoBehaviour
     public static MissionManager Instance;
 
     [Header("Configuration")]
-    public List<MissionData> allMissions; 
+    public List<MissionData> allMissions;
     public int currentMissionIndex = 0;
 
     [Header("UI References")]
-    public TextMeshProUGUI missionTrackerText; 
-    public TextMeshProUGUI notificationText;   
+    public TextMeshProUGUI missionTrackerText;
+    public TextMeshProUGUI notificationText;
     public float notificationDuration = 3f;
 
     private bool allMissionsCompleted = false;
@@ -27,14 +27,14 @@ public class MissionManager : MonoBehaviour
     private void Start()
     {
         if (notificationText != null) notificationText.gameObject.SetActive(false);
-        
+
         // Wait one frame to ensure Inventory is ready, then update UI
         StartCoroutine(StartRoutine());
     }
 
     private IEnumerator StartRoutine()
     {
-        yield return null; 
+        yield return null;
         UpdateMissionUI();
     }
 
@@ -46,39 +46,41 @@ public class MissionManager : MonoBehaviour
 
     private void CheckCurrentMissionProgress()
     {
-        if (currentMissionIndex >= allMissions.Count) return;
+        if (currentMissionIndex >= allMissions.Count || allMissions == null) return;
 
         MissionData currentMission = allMissions[currentMissionIndex];
+        if (currentMission == null || currentMission.requirements == null) return;
+
         bool isMissionComplete = true;
         string progressText = $"<b>{currentMission.missionName}</b>\n";
 
         foreach (var req in currentMission.requirements)
         {
-            if (req.requiredItem == null) continue;
+            if (req == null || req.requiredItem == null) continue;
 
             int currentCount = 0;
             if (InventorySystem.Instance != null)
             {
                 currentCount = InventorySystem.Instance.GetItemCount(req.requiredItem);
             }
+            else
+            {
+                Debug.LogWarning("InventorySystem.Instance is null!");
+            }
 
             string color = (currentCount >= req.requiredAmount) ? "<color=green>" : "<color=red>";
             progressText += $"{color}- {req.requiredItem.itemName}: {currentCount}/{req.requiredAmount}</color>\n";
 
-            if (currentCount < req.requiredAmount)
-            {
-                isMissionComplete = false;
-            }
+            if (currentCount < req.requiredAmount) isMissionComplete = false;
         }
 
         if (missionTrackerText != null)
             missionTrackerText.text = progressText;
 
         if (isMissionComplete)
-        {
             CompleteMission();
-        }
     }
+
 
     private void CompleteMission()
     {
@@ -131,7 +133,7 @@ public class MissionManager : MonoBehaviour
     public void LoadMissionProgress(int savedIndex)
     {
         currentMissionIndex = savedIndex;
-        
+
         if (currentMissionIndex >= allMissions.Count)
         {
             allMissionsCompleted = true;

@@ -51,14 +51,17 @@ public class NPCRoaming : MonoBehaviour
     public float hoverAmplitude = 0.8f;
     public float hoverFrequency = 1f;
     [Header("First Death Item Drop")]
-    public Transform itemSlot;      // Parent/container
-    public GameObject itemSpawn;    // Prefab to drop
+    public ItemData firstDeathItem;    // ItemData for the first drop
+    public Transform itemSlot;         // Parent/container
+    public Sprite storyImage;          // Optional override for story image
 
     private bool hasDroppedItem = false; // first-time only flag
 
-    [Header("Default Spawn (if no save exists)")]
-    public Transform defaultSpawnPoint;
 
+    [Header("Additional Death Item Drops")]
+    public List<ItemData> extraItemsToDrop;     // Use ItemData instead of prefabs
+    public Transform[] itemParents;             // Array of parents for these items
+    public Vector3 dropOffset = Vector3.zero;   // Optional offset per item
     private bool followingPlayer = false;
     private List<Transform> originalWaypoints = new List<Transform>();
     private int currentWaypointIndex = -1;
@@ -184,6 +187,7 @@ public class NPCRoaming : MonoBehaviour
 
         yield return new WaitForSeconds(freezeDuration);
         TryDropItemOnce();
+        DropExtraItems();
 
         if (model != null) model.gameObject.SetActive(false);
         Collider col = GetComponent<Collider>();
@@ -202,6 +206,40 @@ public class NPCRoaming : MonoBehaviour
 
         if (audioController != null) audioController.ResetAudio();
     }
+
+    private void DropExtraItems()
+    {
+        if (extraItemsToDrop == null || extraItemsToDrop.Count == 0 || itemParents == null || itemParents.Length == 0)
+            return;
+
+        for (int i = 0; i < extraItemsToDrop.Count; i++)
+        {
+            ItemData itemData = extraItemsToDrop[i];
+            if (itemData == null || itemData.model == null) continue;
+
+            Transform parent = itemParents[i % itemParents.Length];
+            Vector3 spawnPos = parent.position + dropOffset + new Vector3(i * 0.1f, 0, 0); // optional spacing
+            Quaternion spawnRot = parent.rotation;
+
+            // Instantiate the model from ItemData (not parented)
+            GameObject droppedModel = Instantiate(itemData.model, spawnPos, spawnRot);
+
+            // Apply scale from ItemData
+            droppedModel.transform.localScale = itemData.spawnScale;
+
+            // Assign ItemPickup if exists
+            ItemPickup pickup = droppedModel.GetComponent<ItemPickup>();
+            if (pickup != null)
+            {
+                ItemData uniqueData = Instantiate(itemData);
+                pickup.itemData = uniqueData;
+            }
+
+            // No story image for extra items
+        }
+    }
+
+
 
     private void CalculatePlayerSpeed()
     {
@@ -377,13 +415,40 @@ public class NPCRoaming : MonoBehaviour
     }
     private void TryDropItemOnce()
     {
-        if (hasDroppedItem) return;
-        if (itemSlot == null || itemSpawn == null) return;
+        if (hasDroppedItem || itemSlot == null || firstDeathItem == null || firstDeathItem.model == null)
+            return;
 
-        GameObject droppedItem = Instantiate(itemSpawn, itemSlot);
-        droppedItem.transform.localPosition = Vector3.zero;
-        droppedItem.transform.localRotation = Quaternion.identity;
-        droppedItem.transform.localScale = Vector3.one * 0.05f;
+        // Spawn at parent position & rotation (not parented)
+        Vector3 spawnPos = itemSlot.position;
+        Quaternion spawnRot = itemSlot.rotation;
+        GameObject droppedModel = Instantiate(firstDeathItem.model, spawnPos, spawnRot);
+
+        // Apply scale from ItemData
+        droppedModel.transform.localScale = firstDeathItem.spawnScale;
+
+        // Assign ItemPickup if exists
+        ItemPickup pickup = droppedModel.GetComponent<ItemPickup>();
+        if (pickup != null)
+        {
+            ItemData uniqueData = Instantiate(firstDeathItem);
+            pickup.itemData = uniqueData;
+
+            // Assign story image if present
+            if (storyImage != null)
+                uniqueData.storyImage = storyImage;
+            else if (firstDeathItem.storyImage != null)
+                uniqueData.storyImage = firstDeathItem.storyImage;
+        }
+
+        // Assign story image to ItemReadable if exists
+        ItemReadable readable = droppedModel.GetComponent<ItemReadable>();
+        if (readable != null)
+        {
+            if (storyImage != null)
+                readable.storyImage = storyImage;
+            else if (firstDeathItem.storyImage != null)
+                readable.storyImage = firstDeathItem.storyImage;
+        }
 
         hasDroppedItem = true;
     }
