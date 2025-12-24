@@ -3,8 +3,14 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class MenuManager : MonoBehaviour
-{    public string quickSave = "quick.json";
+{
+    public string quickSave = "quick.json";
+    void Awake()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
+    }
     public void LoadGame()
     {
         GameData.ShouldLoadSave = true; // tell Game scene to load save
@@ -31,7 +37,7 @@ public class MenuManager : MonoBehaviour
         {
             Debug.Log("[SaveManager] No quick save found to delete.");
         }
-        
+
         SceneManager.LoadScene("Quick");
     }
 }

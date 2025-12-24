@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class EndingSceneManager : MonoBehaviour
 {
@@ -96,6 +97,7 @@ public class EndingSceneManager : MonoBehaviour
         else
         {
             Debug.Log("Ending scene finished");
+            SceneManager.LoadScene("Startmenu");
         }
 
         isSkipping = false;

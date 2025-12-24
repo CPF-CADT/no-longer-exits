@@ -88,73 +88,97 @@ public class InventorySystem : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(inventoryKey)) ToggleInventoryScreen();
-
-        // Hotbar keys (1-6)
-        for (int i = 0; i < hotbarSize; i++)
+        // Prevent inventory toggle if puzzle UI is open
+        if (Input.GetKeyDown(inventoryKey) && !IsPuzzleUIOpen())
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i)) SelectSlot(i);
+            ToggleInventoryScreen();
         }
 
         if (!isInventoryOpen)
         {
+            // Hotbar selection (number keys + mouse scroll)
+            HandleHotbarInput();
+
+            // Other inputs when inventory is closed
             if (Input.GetKeyDown(unequipKey)) ToggleEmptyHands();
             if (Input.GetKeyDown(interactKey)) HandleInteraction();
             if (Input.GetKeyDown(readKey)) CheckHandForSpecialAbility();
+
+            // Lock cursor when inventory is closed and puzzle UI not open
+            if (!IsPuzzleUIOpen())
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
         }
         else
         {
+            // Unlock cursor when inventory is open
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
     }
 
-    // --- ITEM MANAGEMENT ---
-    public void AddItem(ItemData item)
+
+    // Called from Update to check if a puzzle is currently active
+    private bool IsPuzzleUIOpen()
     {
-        if (item == null) return;
+        StonePuzzle puzzle = FindObjectOfType<StonePuzzle>();
+        return puzzle != null && puzzle.puzzleCanvas != null && puzzle.puzzleCanvas.activeSelf;
+    }
 
-        // Safety check if slots are not ready
-        if (slots == null) slots = new ItemData[totalSlots];
 
-        // 1. Scroll special case (unique behavior)
+    private void ToggleInventoryScreen()
+    {
+        // Prevent opening inventory if a puzzle is active
+        if (IsPuzzleUIOpen()) return;
+
+        isInventoryOpen = !isInventoryOpen;
+        if (inventoryWindow != null) inventoryWindow.SetActive(isInventoryOpen);
+
+        if (!isInventoryOpen)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+    }
+
+
+
+    // --- ITEM MANAGEMENT ---
+    public bool AddItem(ItemData item)
+    {
+        if (item == null) return false;
+
+        if (slots == null)
+            slots = new ItemData[totalSlots];
+
+        // Scroll special case
         if (scroll != null && item.UniqueID == scroll.UniqueID)
         {
-            bool scrollExists = false;
             for (int i = 0; i < slots.Length; i++)
             {
                 if (slots[i] != null && slots[i].UniqueID == item.UniqueID)
                 {
-                    scrollExists = true;
-                    break;
-                }
-            }
-
-            if (scrollExists)
-            {
-                if (item.storyImage != null)
                     ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, false);
-
-                Debug.Log("Scroll already collected, story added to ScrollManager.");
-                return;
+                    return true; // already owned → treat as success
+                }
             }
         }
 
-        // 2. Prevent duplicates (unless allowed)
+        // Prevent duplicates unless allowed
         bool allowDuplicate = duplicableItems != null && duplicableItems.Contains(item);
         if (!allowDuplicate)
         {
             for (int i = 0; i < slots.Length; i++)
             {
                 if (slots[i] != null && slots[i].UniqueID == item.UniqueID)
-                {
-                    Debug.Log("Item already in inventory!");
-                    return;
-                }
+                    return false;
             }
         }
 
-        // 3. Find first empty slot (Hotbar first, then Backpack)
+        // Find ANY empty slot (hotbar OR backpack)
         for (int i = 0; i < slots.Length; i++)
         {
             if (slots[i] == null)
@@ -162,16 +186,17 @@ public class InventorySystem : MonoBehaviour
                 slots[i] = item;
                 UpdateUI();
 
-                // Auto-equip ONLY if in hotbar and selected
                 if (i < hotbarSize && i == selectedSlot && !holdingNothing)
                     SpawnCurrentSlotModel();
 
-                return;
+                return true; // ✅ SUCCESS
             }
         }
 
-        Debug.LogWarning("Inventory FULL");
+        Debug.LogWarning("Inventory FULL — item NOT added");
+        return false; // ❌ FAILURE
     }
+
 
     public void SelectSlot(int index)
     {
@@ -187,6 +212,40 @@ public class InventorySystem : MonoBehaviour
 
         if (index < hotbarSize)
             SpawnCurrentSlotModel();
+    }
+
+    private float scrollAccumulator = 0f;
+    private float scrollThreshold = 0.1f; // Amount of scroll needed to change slot
+
+    private void HandleHotbarInput()
+    {
+        if (IsPuzzleUIOpen()) return;
+
+        // --- NUMBER KEYS (1-6) ---
+        for (int i = 0; i < hotbarSize; i++)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            {
+                SelectSlot(i);
+            }
+        }
+
+        // --- MOUSE SCROLL ---
+        // --- MOUSE SCROLL ---
+        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+        if (Mathf.Abs(scrollInput) > 0.01f)
+        {
+            scrollAccumulator += scrollInput;
+
+            if (Mathf.Abs(scrollAccumulator) >= scrollThreshold)
+            {
+                // Invert direction
+                int direction = scrollAccumulator > 0 ? -1 : 1; // flipped
+                int newSlot = (selectedSlot + direction + hotbarSize) % hotbarSize; // wrap around
+                SelectSlot(newSlot);
+                scrollAccumulator = 0f; // reset after switching
+            }
+        }
     }
 
 
@@ -269,19 +328,6 @@ public class InventorySystem : MonoBehaviour
         }
     }
 
-
-    private void ToggleInventoryScreen()
-    {
-        isInventoryOpen = !isInventoryOpen;
-        if (inventoryWindow != null) inventoryWindow.SetActive(isInventoryOpen);
-
-        if (!isInventoryOpen)
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-    }
-
     private void ToggleEmptyHands()
     {
         holdingNothing = !holdingNothing;
@@ -295,19 +341,29 @@ public class InventorySystem : MonoBehaviour
         if (!Physics.Raycast(ray, out RaycastHit hit, 3f)) return;
 
         ItemPickup pickup = hit.collider.GetComponent<ItemPickup>();
-        if (pickup != null && pickup.TryClaim())
+        if (pickup == null) return;
+
+        ItemData item = pickup.itemData;
+        if (item == null) return;
+
+        // Try to add FIRST
+        bool added = AddItem(item);
+
+        // Inventory full → DO NOTHING (item stays in world)
+        if (!added)
         {
-            ItemData item = pickup.itemData;
-            AddItem(item);
-
-            if (item != null && item.storyImage != null)
-            {
-                ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, autoOpenIfFirst: false);
-            }
-
-            pickup.Pickup();
+            Debug.Log("Inventory full. Item NOT picked up.");
+            return;
         }
+
+        // Only destroy pickup AFTER successful add
+        pickup.Pickup();
+
+        if (item.storyImage != null)
+            ScrollManager.Instance?.EnqueueStoryIfNotPresent(item.storyImage, false);
     }
+
+
 
     private void CheckHandForSpecialAbility()
     {
@@ -483,4 +539,5 @@ public class InventorySystem : MonoBehaviour
 
         Debug.Log("--- LOAD PROCESS FINISHED ---");
     }
+
 }

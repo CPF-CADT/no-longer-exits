@@ -9,11 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 0c524efbf54840540b33b769aee3e475, type: 3}
   m_Name: FrenchHouse
-  m_EditorClassIdentifier: Assembly-CSharp::MissionData
+  m_EditorClassIdentifier: 
   missionName: French House
-  description: Key is Locate inside village
+  description: Locate key in village
   requirements:
   - requiredItem: {fileID: 11400000, guid: 90ed71b938562444aa363937790fccec, type: 2}
     requiredAmount: 1

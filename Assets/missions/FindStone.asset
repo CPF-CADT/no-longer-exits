@@ -14,5 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MissionData
   missionName: The Temple
   description: Find puzzle stone
-  requirements: []
+  requirements:
+  - requiredItem: {fileID: 11400000, guid: 71ad208df4ac7b2469fb6061991f2522, type: 2}
+    requiredAmount: 4
   rewardItem: {fileID: 0}
