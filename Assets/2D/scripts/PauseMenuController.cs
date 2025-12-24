@@ -9,6 +9,12 @@ public class PauseMenuController : MonoBehaviour
     [Header("Settings")]
     public string startMenuSceneName = "StartMenu"; // Exact name of your start menu scene
     public static bool isPaused = false;
+    void Awake()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+    }
 
     void Update()
     {
@@ -51,7 +57,7 @@ public class PauseMenuController : MonoBehaviour
     public void LoadMainMenu()
     {
         // IMPORTANT: Always reset time before loading a new scene
-        Time.timeScale = 1f; 
+        Time.timeScale = 1f;
         SceneManager.LoadScene(startMenuSceneName);
     }
 
@@ -59,7 +65,7 @@ public class PauseMenuController : MonoBehaviour
     {
         Debug.Log("Quitting Game...");
         Application.Quit();
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false; // stops play mode in editor
 #endif
     }

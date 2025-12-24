@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 
 [ExecuteInEditMode]
+[RequireComponent(typeof(Camera))]
 public class Zoom : MonoBehaviour
 {
     new Camera camera;
@@ -15,8 +16,6 @@ public class Zoom : MonoBehaviour
 
     void Update()
     {
-        // --- SCROLL ZOOM COMPLETELY DISABLED ---
-        // No mouse scroll changes, camera FOV stays at default
         if (camera != null)
             camera.fieldOfView = defaultFOV;
     }

@@ -6141,17 +6141,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 463268, guid: 7b1355ed0671b9f479e96712b7171f9c, type: 3}
   m_PrefabInstance: {fileID: 140388143}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &141483374 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8342759102292849845, guid: e6ddd0ea0c338ff44a107186c20b6310, type: 3}
-  m_PrefabInstance: {fileID: 275198736}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 275198737}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2d77088f630986c4e8293dde1ed7a783, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &143221380
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11278,7 +11267,8 @@ PrefabInstance:
       propertyPath: portalVisualPrefab
       value: 
       objectReference: {fileID: 2334455049011862081, guid: c1335396aea434a6ab7bf94c401421a0, type: 3}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8342759102292849845, guid: e6ddd0ea0c338ff44a107186c20b6310, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
@@ -23431,6 +23421,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 415016, guid: 4743926f06b7fdc4c93033724c776cdc, type: 3}
   m_PrefabInstance: {fileID: 578546489}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &580974886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 580974889}
+  - component: {fileID: 580974888}
+  - component: {fileID: 580974887}
+  m_Layer: 0
+  m_Name: PuzzleManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &580974887
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580974886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d2c2d40ae1d3fb4fa67ebd74b823ba6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  id: e37d9152-6d31-48f3-b2af-55d61ca77f67
+--- !u!114 &580974888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580974886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d77088f630986c4e8293dde1ed7a783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  totalWeapons: 4
+  placedCorrectWeapons: 0
+  debugAutoSolve: 0
+  statueAnimator: {fileID: 0}
+  portalDoor: {fileID: 449158241}
+  portalVisualPrefab: {fileID: 2334455049011862081, guid: c1335396aea434a6ab7bf94c401421a0, type: 3}
+  useCustomPortalTransform: 1
+  portalPosition: {x: 0, y: 0, z: 0}
+  portalRotationEuler: {x: 0, y: 0, z: 0}
+  persistentID: {fileID: 0}
+--- !u!4 &580974889
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 580974886}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 491.85675, y: 19.132828, z: 568.73694}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &583175289
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -42790,9 +42848,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   allMissions:
   - {fileID: 11400000, guid: 543e80bbdccb2e74a9c2e3e069fe8f37, type: 2}
-  - {fileID: 11400000, guid: ca3d64c1f6e97c44696eb667b0c0511b, type: 2}
+  - {fileID: 11400000, guid: e3ee00b60ca111149ac7115bff233505, type: 2}
   - {fileID: 11400000, guid: 3b80ef00cdf27b448a53023fda1e4dae, type: 2}
-  - {fileID: 11400000, guid: 869c1f94ba55b0440a67ada7b3a4d6d0, type: 2}
   - {fileID: 11400000, guid: b4e540bda5f6d5940ae27df821166826, type: 2}
   currentMissionIndex: 0
   missionTrackerText: {fileID: 367919775}
@@ -80195,11 +80252,19 @@ PrefabInstance:
     - target: {fileID: 423924578352551699, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: puzzleManager
       value: 
-      objectReference: {fileID: 141483374}
+      objectReference: {fileID: 0}
+    - target: {fileID: 423924578352551699, guid: de66e6896dd90954daf75687615425cb, type: 3}
+      propertyPath: puzzleManagerID
+      value: 
+      objectReference: {fileID: 580974887}
     - target: {fileID: 2855928360527462183, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: puzzleManager
       value: 
-      objectReference: {fileID: 141483374}
+      objectReference: {fileID: 0}
+    - target: {fileID: 2855928360527462183, guid: de66e6896dd90954daf75687615425cb, type: 3}
+      propertyPath: puzzleManagerID
+      value: 
+      objectReference: {fileID: 580974887}
     - target: {fileID: 3699884314114074161, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: m_Name
       value: Visnu
@@ -80207,11 +80272,19 @@ PrefabInstance:
     - target: {fileID: 4099618873258557940, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: puzzleManager
       value: 
-      objectReference: {fileID: 141483374}
+      objectReference: {fileID: 0}
+    - target: {fileID: 4099618873258557940, guid: de66e6896dd90954daf75687615425cb, type: 3}
+      propertyPath: puzzleManagerID
+      value: 
+      objectReference: {fileID: 580974887}
     - target: {fileID: 5270569213150671211, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: puzzleManager
       value: 
-      objectReference: {fileID: 141483374}
+      objectReference: {fileID: 0}
+    - target: {fileID: 5270569213150671211, guid: de66e6896dd90954daf75687615425cb, type: 3}
+      propertyPath: puzzleManagerID
+      value: 
+      objectReference: {fileID: 580974887}
     - target: {fileID: 5966099804913923345, guid: de66e6896dd90954daf75687615425cb, type: 3}
       propertyPath: m_LocalPosition.x
       value: 499.1483
@@ -87850,6 +87923,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 275198736}
+  - {fileID: 580974889}
   - {fileID: 188731948}
   - {fileID: 449579119}
   - {fileID: 1416129985}
