@@ -3,7 +3,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class MenuManager : MonoBehaviour
-{    public string quickSave = "quick.json";
+{
+    public string quickSave = "quick.json";
 
     public void LoadGame()
     {
@@ -16,7 +17,6 @@ public class MenuManager : MonoBehaviour
         GameData.ShouldLoadSave = false; // start fresh
         SceneManager.LoadScene("Game");
     }
-
 
     public void QuickGame()
     {
@@ -31,7 +31,19 @@ public class MenuManager : MonoBehaviour
         {
             Debug.Log("[SaveManager] No quick save found to delete.");
         }
-        
+
         SceneManager.LoadScene("Quick");
+    }
+
+    // 🔴 EXIT GAME BUTTON
+    public void ExitGame()
+    {
+        Debug.Log("Exiting Game...");
+
+        Application.Quit(); // works in build
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false; // stops play mode in editor
+#endif
     }
 }
