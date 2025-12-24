@@ -23,7 +23,6 @@ public class MenuManager : MonoBehaviour
         SceneManager.LoadScene("Game");
     }
 
-
     public void QuickGame()
     {
         string path = Path.Combine(Application.persistentDataPath, quickSave);
@@ -39,5 +38,17 @@ public class MenuManager : MonoBehaviour
         }
 
         SceneManager.LoadScene("Quick");
+    }
+
+    // 🔴 EXIT GAME BUTTON
+    public void ExitGame()
+    {
+        Debug.Log("Exiting Game...");
+
+        Application.Quit(); // works in build
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false; // stops play mode in editor
+#endif
     }
 }
