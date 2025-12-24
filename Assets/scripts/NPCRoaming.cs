@@ -260,20 +260,54 @@ public class NPCRoaming : MonoBehaviour
         }
     }
 
+    [Header("Debug")]
+    public bool showVisionCone = true;
+    public int visionRayCount = 20; // number of rays to draw for cone
+
     private bool CheckVision()
     {
         if (player == null) return false;
-        Vector3 dirToPlayer = (player.position - transform.position).normalized;
-        float dist = Vector3.Distance(transform.position, player.position);
+
+        Vector3 start = transform.position + Vector3.up * 0.5f; // ghost eye height
+        Vector3 dirToPlayer = (player.position - start).normalized;
+        float dist = Vector3.Distance(player.position, start);
+
+        // Check distance
         if (dist > visionRange) return false;
 
-        if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2)
-        {
-            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dirToPlayer, dist, obstacleMask))
-                return true;
-        }
-        return false;
+        // Check if player is inside view angle
+        float angle = Vector3.Angle(transform.forward, dirToPlayer);
+        if (angle > viewAngle / 2) return false;
+
+        // Line of sight check
+        bool blocked = Physics.Raycast(start, dirToPlayer, dist, obstacleMask);
+        Debug.DrawRay(start, dirToPlayer * dist, blocked ? Color.red : Color.green, 0.1f);
+
+        return !blocked;
     }
+
+    // Draw vision cone in Scene view
+    private void OnDrawGizmosSelected()
+    {
+        if (!showVisionCone) return;
+
+        Gizmos.color = Color.yellow;
+        Vector3 start = transform.position + Vector3.up * 0.5f;
+
+        float halfFOV = viewAngle / 2f;
+        for (int i = 0; i <= visionRayCount; i++)
+        {
+            float angle = -halfFOV + (viewAngle / visionRayCount) * i;
+            Vector3 dir = Quaternion.Euler(0, angle, 0) * transform.forward;
+            Gizmos.DrawLine(start, start + dir * visionRange);
+        }
+
+        // Optional: draw forward center line
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(start, start + transform.forward * visionRange);
+    }
+
+
 
     private bool CheckHearing()
     {
