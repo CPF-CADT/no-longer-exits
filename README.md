@@ -92,7 +92,7 @@ Assets/
 ├── 2D/                     # 2D UI, Puzzles, and scripts
 ├── Audio/                  # Sound effects and ambient tracks
 ├── Editor/                 # Custom editor tooling
-├── ExternalAssets/         # Third-party environment and controller packs
+├── packages/         # Third-party environment and controller packs
 ├── Items/                  # ScriptableObject item definitions
 ├── missions/               # MissionData ScriptableObjects
 ├── Prefabs/                # Core gameplay and environment prefabs
@@ -106,7 +106,7 @@ Assets/
 │   ├── Npc/                # AI roaming and interactions
 │   ├── Puzzle/             # Puzzle logic and management
 │   └── Save/               # JSON persistence system
-├── Sprite \ sotries/       # Story UI images
+├── sotries/       # Story UI images
 ├── TextMesh Pro/           # UI Text assets
 └── Uploaded Prefab/        # Development prefabs
 
