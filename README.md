@@ -95,7 +95,7 @@ Assets/
 ├── packages/         # Third-party environment and controller packs
 ├── Items/                  # ScriptableObject item definitions
 ├── missions/               # MissionData ScriptableObjects
-├── Prefabs/                # Core gameplay and environment prefabs
+├── GamePlayPrefabs/                # Core gameplay and environment prefabs
 ├── Resources/              # Runtime registries (e.g., ItemRegistry)
 ├── Scenes/                 # Game scenes (Startmenu, Game, Demo)
 ├── Scripts/                # Core gameplay logic (see breakdown below)
