@@ -60,10 +60,9 @@ Players explore a dark, haunted village to uncover hidden paths and restricted a
 
 ### Game Build (Windows)
 
-The compiled Windows build is provided in the `Build/` directory.
-Players can launch the game directly by double-clicking the `No Longer Exists.exe` file.
+You can download and play the compiled Windows version of the game here:
 
-For convenience, the same build is also available for download via MediaFire:
+After downloading, extract the .zip file and double-click No Longer Exists.exe to run the game:
 https://www.mediafire.com/file/efg8s58htjz89eo/NoLongerExists.zip/file
 
 
